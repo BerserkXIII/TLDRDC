@@ -1,0 +1,20 @@
+# TLDRDC - Dependencias del Proyecto
+# Este archivo lista todas las dependencias externas necesarias
+
+# GUI Framework
+# Tkinter viene incluido con Python, pero lo listamos como referencia
+# En sistemas Ubuntu/Debian, instalar con: sudo apt-get install python3-tk
+
+# Procesamiento de Imágenes
+Pillow>=9.0.0           # Para cargar y procesar imágenes (JPG, PNG, etc.)
+
+# Nota sobre compatibilidad:
+# Python 3.10+ recomendado (v0.2.0+)
+# Python 3.8+ es el mínimo soportado
+# No tested con Python 2.7 (no lo uses)
+
+# Dependencias opcionales (para desarrollo):
+# pytest>=7.0.0          # Para tests unitarios
+# black>=22.0.0          # Para formateo de código
+# pylint>=2.0.0          # Para linting
+# mypy>=0.900            # Para type checking
