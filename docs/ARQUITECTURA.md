@@ -280,6 +280,202 @@ resultado = funcion_evento(personaje)
 
 ---
 
+## 🧵 Sistema de Threading (Doble Hilo)
+
+### El Problema Que Resuelve
+
+En un programa tradicional con Tkinter, si haces esto:
+
+```python
+# ❌ MAL: Esto congela la UI
+root = tk.Tk()
+nombre = input("¿Tu nombre?")  # ← LA VENTANA SE CONGELA AQUÍ
+label = tk.Label(root, text=f"Hola {nombre}")
+label.pack()
+root.mainloop()
+```
+
+**¿Qué pasa?**
+1. `input()` espera respuesta del usuario
+2. Mientras espera, **Tkinter no procesa eventos** (clics, movimientos, redraws)
+3. La ventana se congela, parece "muerta"
+
+### La Solución: Doble Hilo
+
+TLDRDC utiliza **dos hilos separados que se comunican**:
+
+```
+┌─────────────────────────────────────────────────────┐
+│         HILO 1: TKINTER (UI)    ↔  HILO 2: JUEGO    │
+│                                                      │
+│ • Renderiza texto        _Bridge       • Combate    │
+│ • Lee clics             (puente)       • Eventos    │
+│ • Gestiona widgets   (threading)       • Narrativa  │
+│                    .Event()                          │
+│ NUNCA se bloquea                   BLOQUEA cuando   │
+│                                    necesita entrada  │
+└─────────────────────────────────────────────────────┘
+```
+
+### Cómo Funciona: Paso a Paso
+
+#### **El Puente: Clase `_Bridge`**
+
+```python
+# TLDRDC_Prueba1.py, líneas 95-109
+
+class _Bridge:
+    """Canal de comunicación entre hilos"""
+    
+    def __init__(self):
+        self._evento = threading.Event()  # Semáforo binario
+        self._valor  = ""
+    
+    def esperar(self):
+        """HILO JUEGO: Espera aquí hasta recibir entrada"""
+        self._evento.wait()      # Se bloquea indefinidamente
+        self._evento.clear()     # Resetea para próxima entrada
+        return self._valor       # Retorna lo que el usuario envió
+    
+    def recibir(self, texto):
+        """HILO TKINTER: Se llama cuando el usuario envía texto"""
+        self._valor = texto
+        self._evento.set()       # ← DESBLOQUEA el .wait()
+```
+
+**Componentes clave**:
+
+| Componente | Qué es | Por qué |
+|-----------|--------|--------|
+| `threading.Event()` | Semáforo (bandera) | Permite bloquear/desbloquear hilos |
+| `.wait()` | Pausa el hilo actual | Hasta que `.set()` se ejecute |
+| `.set()` | Pone la bandera en ON | Desbloquea el `.wait()` |
+| `.clear()` | Resetea la bandera | Para preparar siguiente bloqueo |
+
+#### **El Envoltorio: `pedir_entrada()`**
+
+```python
+# TLDRDC_Prueba1.py, líneas 115-124
+
+def pedir_input(prompt=""):
+    """Reemplaza a input() nativa de Python"""
+    
+    # 1. Decir a la UI cuál es la pregunta
+    if prompt:
+        emitir("preguntar", prompt)
+    
+    # 2. Desbloquear la caja de entrada en UI
+    emitir("habilitar_input")
+    
+    # 3. BLOQUEAR ESTE HILO hasta que venga respuesta
+    return _bridge.esperar()  # ← AQUÍ OCURRE LA MAGIA
+```
+
+#### **El Flujo Completo de una Entrada**
+
+```
+1. Juego: arma = pedir_input("¿Arma?")
+2. _bridge.esperar() llamado
+3. Hilo juego: BLOQUEA indefinidamente
+4. Hilo Tkinter: Sigue ligero, procesando eventos
+5. Usuario escribe "daga" + presiona Enter
+6. Vista: _bridge.recibir("daga")
+7. _bridge.set() ejecuta
+8. Hilo juego: ← SE DESBLOQUEA
+9. pedir_input() retorna "daga"
+10. Juego continúa normalmente
+```
+
+### Por Qué Funciona Bien
+
+#### **1. Código Limpio y Lineal**
+
+```python
+# Sin threading (complicado con llamadas de retorno)
+def ui_callback():
+    global estado
+    entrada = entry.get()
+    # ... más llamadas de retorno, variables globales, etc
+
+# Con threading (simple, como script normal)
+arma = pedir_input("¿Arma? ")  # Se pausa aquí, naturalmente
+ataque = ejecutar_ataque(arma)
+aplicar_evento(ataque)
+```
+
+#### **2. Responsividad Garantizada**
+
+- **Sin threading**: UI se congela mientras juego piensa
+- **Con threading**: UI siempre responde instantáneamente, juego piensa en otro hilo
+
+#### **3. Depuración Más Fácil**
+
+- El juego se bloquea en `pedir_input()` (línea clara y visible)
+- Tkinter sigue respondiendo (puedo inspeccionar estado)
+- No hay cascadas de llamadas de retorno ("code spaghetti")
+
+#### **4. Separación Total de Responsabilidades**
+
+```
+Hilo Tkinter:  Solo UI (clics, renders, eventos gráficos)
+Hilo Juego:    Solo lógica (batalla, eventos, narrativa)
+Comunicación:  cola_mensajes (unidireccional, thread-safe)
+Ninguno toca la responsabilidad del otro
+```
+
+### Limitaciones y Cuidados
+
+⚠️ **Condiciones de Carrera**: Dos hilos no pueden modificar el mismo dato sin sincronización
+
+**Solución en TLDRDC**:
+- El personaje solo se modifica en el hilo juego
+- La cola de mensajes es thread-safe
+- Tkinter solo LEE, nunca modifica la lógica
+
+⚠️ **Hilos Daemon**: `daemon=True` significa que cierra cuando el programa cierra
+
+```python
+hilo_juego = threading.Thread(target=main_game, daemon=True)
+```
+
+### Ejemplo Práctico: Combate Real
+
+```
+TKINTER → Usuario hace clic en "Atacar"
+         ↓
+         Muestra solicitud "¿Arma?"
+         
+JUEGO →  turno_jugador() 
+         arma = pedir_input("...")
+         _bridge.esperar() ← SE BLOQUEA
+         
+TKINTER → Espera entrada del jugador
+         Usuario escribe "espada"
+         
+TKINTER → _bridge.recibir("espada")
+         _bridge.set()
+         
+JUEGO →  ← SE DESBLOQUEA
+         arma = "espada"
+         Calcula daño
+         Emite resultado
+         
+TKINTER → Ve mensaje "resultado"
+         Renderiza en pantalla
+```
+
+### Resumen: Ventajas del Doble Hilo
+
+| Aspecto | Sin Threading | Con Threading |
+|--------|--------------|---------------|
+| **Complejidad** | Alta (llamadas de retorno, async) | Baja (lineal, normal) |
+| **Responsividad** | Posibles congelaciones | Garantizada |
+| **Experiencia** | Frustrante si hay lag | Profesional y suave |
+| **Mantenibilidad** | Difícil de seguir | Fácil de leer |
+| **Depuración** | Difícil (cascadas de eventos) | Simple (se ve claramente) |
+
+---
+
 ## Sistema de Eventos
 
 ### Flujo de Eventos
