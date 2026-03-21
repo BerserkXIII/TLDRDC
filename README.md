@@ -180,13 +180,16 @@ TLDRDC/
 
 ---
 
-## 📚 Documentación Completa
+## 📚 Documentación
 
-**Para aprender más, consulta**:
-- [CONTRIBUYIENDO.md](docs/CONTRIBUYIENDO.md) - Cómo contribuir y lineas de desarrollo
-- [ARQUITECTURA.md](docs/ARQUITECTURA.md) - Decisiones técnicas y patrones
-- [CREDITOS.md](docs/CREDITOS.md) - Herramientas, inspiración, agradecimientos detallados
-- [CHANGELOG.md](CHANGELOG.md) - Historial de versiones
+**Referencia técnica completa**:
+
+| Documento | Contenido |
+|-----------|-----------|
+| [**ARQUITECTURA.md**](docs/ARQUITECTURA.md) | Decisiones de diseño, patrones aplicados (Inyección de Dependencias, Registry Pattern, **Sistema de Threading**), y estructura modular |
+| [**CONTRIBUYIENDO.md**](docs/CONTRIBUYIENDO.md) | Cómo contribuir: guía honesta enfocada en enseñanza y aprendizaje compartido |
+| [**CREDITOS.md**](docs/CREDITOS.md) | Viaje completo de desarrollo: herramientas, IA usada, inspiraciones del juego |
+| [**CHANGELOG.md**](CHANGELOG.md) | Historial de versiones y cambios por release |
 
 ---
 

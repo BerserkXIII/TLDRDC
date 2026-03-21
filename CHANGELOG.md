@@ -9,7 +9,7 @@ Este es un proyecto de aprendizaje a traves de IA, por lo que puede contener err
 
 ---
 
-## [0.2.0] - 2026-03-18
+## [0.2.0] - 2026-03-21
 
 ### 🎯 Tema: Modularización y Refactorización Masiva
 
@@ -24,9 +24,13 @@ Un cambio arquitectónico importante: el sistema de eventos ha sido extraído de
 
 - **Documentación Técnica**:
   - [ARQUITECTURA.md](docs/ARQUITECTURA.md) - Creada por IA, modificada y revisada por usuario
-    - [+] Sección de Threading: Explicación del sistema de doble hilo con diagramas y flujos
-  - [CONTRIBUYENDO.md](docs/CONTRIBUYENDO.md) - Creada por IA (reescrita por IA con dirección del usuario, ahora de tono honesto y auténtico)
+    - [+] Sección de Threading (Doble Hilo): Explicación completa con diagramas, flujos, componentes y limitaciones
+    - [+] Tabla de Contenidos: Actualizada para incluir nueva sección
+  - [CONTRIBUYIENDO.md](docs/CONTRIBUYIENDO.md) - Creada por IA (reescrita por IA con dirección del usuario, ahora de tono honesto y auténtico)
   - [CREDITOS.md](docs/CREDITOS.md) - Creada por IA, documentando el viaje completo incluyendo asistencia de IA
+
+- **Mejoras de Navegación**:
+  - [README.md](README.md) - Sección de documentación reformatada con tabla clara de referencias
 
 - **Git Setup**:
   - `.gitignore` - Ignorar archivos innecesarios

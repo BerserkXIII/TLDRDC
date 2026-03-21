@@ -10,6 +10,7 @@ Documento técnico explicando decisiones de diseño, patrones, y estructura del 
 - [Arquitectura 0.1.0 (Monolítica)](#arquitectura-010-monolítica)
 - [Arquitectura 0.2.0 (Modularizada)](#arquitectura-020-modularizada)
 - [Patrones de Diseño](#patrones-de-diseño)
+- [Sistema de Threading (Doble Hilo)](#sistema-de-threading-doble-hilo)
 - [Sistema de Eventos](#sistema-de-eventos)
 - [Decisiones Clave](#decisiones-clave)
 - [Cómo Extender](#cómo-extender)
@@ -684,5 +685,5 @@ o [README.md](../README.md) para el overview.
 
 ---
 
-**Última actualización**: 18 de Marzo de 2026
+**Última actualización**: 21 de Marzo de 2026
 **Estado**: Completa para v0.2.0
