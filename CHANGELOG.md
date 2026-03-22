@@ -67,6 +67,17 @@ Un cambio arquitectónico importante: el sistema de eventos ha sido extraído de
   - Movida inyección de dependencias a punto de ejecución seguro ✅
   - Todas las funciones ahora definidas antes de inyección ✅
 
+### 🐛 Fixed (Bug Crítico de Imports - 22 de Marzo, PM)
+- **KeyError: 'fondo'** - Sistema de imports completamente roto
+  - **Problema**: `sys.path.insert()` estaba configurado DESPUÉS de los imports de módulos
+  - **Causa**: Python no podía encontrar la carpeta `modules/` ejecutando desde cualquier directorio
+  - **Síntoma**: `COLORES`, `RUTAS_IMAGENES_PANELES`, etc. nunca se cargaban → KeyError en Vista.__init__
+  - **Solución**: Mover configuración de paths al inicio del archivo (línea 13-17)
+    - Cálculo de raíz del proyecto: `os.path.dirname(os.path.dirname(os.path.abspath(__file__)))`
+    - `sys.path.insert(0, _proyecto_root)` ANTES de importar módulos locales
+  - **Alcance**: 0 nuevos bugs (solo reordenamiento de código existente)
+  - **Resultado**: ✅ Juego inicia correctamente desde cualquier ubicación
+
 ### 📋 Documentation & Polish (22 de Marzo)
 - `.gitignore` - Expandida cobertura de patrones (40 → 60+ patterns)
 - `README.md` - Agregados badges de estado para visibilidad rápida

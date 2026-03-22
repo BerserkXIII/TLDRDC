@@ -9,6 +9,13 @@ from tkinter import font as tkfont
 from collections import deque
 from enum import Enum
 
+# ================== CONFIGURACIÓN DE PATHS ==================
+# CRÍTICO: Configurar sys.path ANTES de importar módulos locales
+# El archivo está en code/, pero los módulos están en la raíz de TLDRDC/
+# Añadimos la raíz del proyecto al path para que Python encuentre modules/
+_proyecto_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _proyecto_root)
+
 # PIL es opcional: sin el, no se pueden cargar JPG ni RGBA.
 # Solo PNG nativo de tkinter estara disponible.
 # Módulos de UI modularizados
@@ -29,9 +36,6 @@ except ImportError:
 
 # Módulo de eventos (nuevo sistema modularizado)
 try:
-    import sys
-    import os
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import modules.events as events_module
     from modules.events import evento_aleatorio, rellenar_bolsa_eventos, obtener_evento_de_bolsa, rellenar_bolsa_exploracion, obtener_texto_exploracion_de_bolsa
     MODULOS_EVENTOS_DISPONIBLES = True

@@ -9,7 +9,7 @@ import os
 
 # ================== CONFIGURACIÓN DE LOGGING ==================
 
-DEBUG_MODE = False  # Cambiar a True para activar debugging
+DEBUG_MODE = False  # Cambiar a True para activar debugging -------------------------------------
 
 # Crear carpeta para logs de debug y performance
 # DEBUG_FOLDER apunta a: Version 0.7/debug_reports/

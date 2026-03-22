@@ -21,7 +21,7 @@ except ImportError:
 
 # ================== CONFIGURACIÓN DE PERFORMANCE MONITORING ==================
 
-PERF_MODE = True  # Cambiar a True para activar monitoring
+PERF_MODE = True  # Cambiar a True para activar monitoring -------------------------------------
 
 PERF_STATS = {
     # Estructura: "funcion": {"llamadas": 0, "tiempo_total": 0.0, "min": float('inf'), "max": 0.0}
