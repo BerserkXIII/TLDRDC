@@ -70,3 +70,39 @@ htmlcov/
 # Archivos temporales
 *.tmp
 *.temp
+
+# Base de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+
+# Archivos del sistema
+Thumbs.db
+.DS_Store
+ehthumbs.db
+
+# Archivos compilados adicionales
+*.pyc
+*.pyo
+dist/
+build/
+*.egg-info/
+
+# Reportes y análisis
+htmlcov/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Folders temporales del proyecto
+temp/
+tmp/
+logs/
+debug_output/
