@@ -1,3 +1,25 @@
+"""
+TLDRDC - The Lost Dire Realm: Dungeon Crawler
+===============================================
+
+Game loop, UI orchestration, and game state management for a terminal-based
+dungeon crawler with Tkinter GUI. Threading model separates game logic (worker
+thread) from UI event loop (main thread) via _Bridge synchronization.
+
+Modules:
+    - modules.ui_config: UI constants (colors, shapes, dimensions)
+    - modules.ui_imagen_manager: Image loading and caching
+    - modules.ui_estructura: UI layout templates
+    - modules.events: Event system and narrative content
+
+Architecture:
+    Game Logic Thread: Blocking I/O (waits at pedir_input) 
+    Main Thread:       Tkinter event loop (never blocks)
+    Via _Bridge:       threading.Event allows synchronized communication
+
+See docs/ARQUITECTURA.md for complete threading architecture.
+"""
+
 import json
 import math
 import os
@@ -9,61 +31,72 @@ from tkinter import font as tkfont
 from collections import deque
 from enum import Enum
 
-# ================== CONFIGURACIÓN DE PATHS ==================
-# CRÍTICO: Configurar sys.path ANTES de importar módulos locales
-# El archivo está en code/, pero los módulos están en la raíz de TLDRDC/
-# Añadimos la raíz del proyecto al path para que Python encuentre modules/
+# ==============================================================================
+# INITIALIZATION: Module Paths & Dependencies
+# ==============================================================================
+
+# Setup sys.path to find local modules. TLDRDC_Prueba1.py is in code/,
+# but all modules (ui_config, events, etc) are at project root.
 _proyecto_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _proyecto_root)
 
-# PIL es opcional: sin el, no se pueden cargar JPG ni RGBA.
-# Solo PNG nativo de tkinter estara disponible.
-# Módulos de UI modularizados
+# Load UI configuration module (colors, button shapes, image paths).
+# PIL is optional; without it, only PNG images load natively.
 try:
     from modules.ui_config import COLORES, FORMAS_BTN, RUTAS_IMAGENES_PANELES
     from modules.ui_imagen_manager import imagen_manager
     from modules.ui_estructura import estructura_ui
     MODULOS_DISPONIBLES = True
 except ImportError as e:
-    print(f"Error cargando módulos de UI: {e}")
+    print(f"Error: UI modules not found: {e}")
     MODULOS_DISPONIBLES = False
 
+# PIL enables JPEG and RGBA image support. PNG always available via Tkinter.
 try:
     from PIL import Image, ImageTk
     PIL_DISPONIBLE = True
 except ImportError:
     PIL_DISPONIBLE = False
 
-# Módulo de eventos (nuevo sistema modularizado)
+# Event system with 20 procedurally generated encounter events.
 try:
     import modules.events as events_module
-    from modules.events import evento_aleatorio, rellenar_bolsa_eventos, obtener_evento_de_bolsa, rellenar_bolsa_exploracion, obtener_texto_exploracion_de_bolsa
+    from modules.events import (
+        evento_aleatorio, rellenar_bolsa_eventos, obtener_evento_de_bolsa,
+        rellenar_bolsa_exploracion, obtener_texto_exploracion_de_bolsa
+    )
     MODULOS_EVENTOS_DISPONIBLES = True
 except ImportError as e:
-    print(f"Aviso: Módulo de eventos no disponible: {e}")
+    print(f"Warning: Event module not found: {e}")
     MODULOS_EVENTOS_DISPONIBLES = False
 
-# ================== ENUMERACIONES (Type-safe strings) ==================
+# ==============================================================================
+# Type Definitions: Enumerations for Type-Safe Game State
+# ==============================================================================
 
 class Condicion(Enum):
-    """Condiciones para disparar habilidades."""
+    """Trigger conditions for automated ability use during combat."""
     SIEMPRE = "siempre"
     VIDA_BAJA = "vida_baja"
     VIDA_MEDIA = "vida_media"
 
+
 class TipoHabilidad(Enum):
-    """Tipo de habilidad: activa consume turno, pasiva modifica ataque."""
+    """Ability classification: active (consumes turn) or passive (modifies roll)."""
     ACTIVA = "activa"
     PASIVA = "pasiva"
 
+
 class EfectoHabilidad(Enum):
-    """Tipos de efectos que pueden aplicar habilidades."""
+    """Effect types that abilities can apply to alter combat."""
+    # Damage & Defense
     SANGRADO = "sangrado"
     DAMAGE_BOOST = "damage_boost"
     STUN = "stun"
     ARMOR_REDUCTION = "armor_reduction"
     HEAL = "heal"
-    # Habilidades especiales
+    
+    # Special Ability Effects
     RECUPERACION_IMPIA = "recuperacion_impia"
     ACUCHILLAMIENTO = "acuchillamiento"
     ESQUIVA_TEMPORAL = "esquiva_temporal"
@@ -76,51 +109,103 @@ class EfectoHabilidad(Enum):
     AZOTAZO_DEMONICO = "azotazo_demonico"
     REDUCIR_ARMADURA = "reducir_armadura"
 
+
 class Stance(Enum):
-    """Posturas de combate del jugador."""
+    """Player combat stance that modifies defensive behavior."""
     NINGUNO = None
     BLOQUEAR = "bloquear"
     ESQUIVAR = "esquivar"
 
+
 class Accion(Enum):
-    """Acciones posibles en combate."""
+    """Available player actions during encounters."""
     ATAQUE = "ataque"
     HUIDA = "huida"
     POCION = "pocion"
     STANCE_BLOQUEAR = "bloquear"
     STANCE_ESQUIVAR = "esquivar"
 
-# ================== PUENTE HILO JUEGO <-> TKINTER ==================
-# El juego corre en un hilo separado. Cuando necesita input, llama
-# pedir_input() que bloquea ese hilo hasta que la Vista entrega texto.
-# La Vista (hilo principal) nunca se congela.
+# ==============================================================================
+# Thread Synchronization: Game <-> UI Bridge
+# ==============================================================================
+# Architecture: Game logic runs in a worker thread and blocks on pedir_input().
+# The main thread runs Tkinter event loop (never blocks). _Bridge enables
+# synchronized communication between threads via threading.Event().
+#
+# Flow: Game calls pedir_input() -> blocks until Vista calls _bridge.recibir()
+#       -> Vista UI remains responsive to mouse/keyboard in main thread.
+#
+# See docs/ARQUITECTURA.md#Doble Hilo for detailed threading architecture.
 
 class _Bridge:
-    """Canal de comunicacion entre el hilo del juego y tkinter."""
+    """
+    Synchronization channel between game logic thread and Tkinter main thread.
+    
+    Uses threading.Event to block worker thread until UI delivers user input.
+    Tkinter event loop remains free to handle user interactions.
+    
+    Attributes:
+        _evento (threading.Event): Cross-thread signaling mechanism
+        _valor (str): Input text passed from Vista to game logic
+    """
+
     def __init__(self):
+        """Initialize synchronization primitives."""
         self._evento = threading.Event()
-        self._valor  = ""
+        self._valor = ""
 
     def esperar(self):
-        """Bloquea el hilo del juego hasta que llega un input."""
+        """
+        Block calling thread until input is available.
+        
+        Worker thread calls this during normal game flow. Blocks until
+        Vista calls recibir(). Clears event after unblocking to reset
+        for next input cycle.
+        
+        Returns:
+            str: Input text from Vista (user command/response)
+        """
         self._evento.wait()
         self._evento.clear()
         return self._valor
 
     def recibir(self, texto):
-        """Llamado por la Vista cuando el jugador envia texto."""
+        """
+        Unblock waiting thread and deliver input.
+        
+        Called by Vista when user submits text via UI. Sets event flag to
+        wake worker thread, which continues from esperar() call.
+        
+        Args:
+            texto (str): User input to pass to game logic
+        """
         self._valor = texto
         self._evento.set()
+
 
 _bridge = _Bridge()
 
 
 def pedir_input(prompt=""):
     """
-    Reemplaza a input() en todo el juego.
-    Si hay prompt, lo emite al texto principal antes de esperar.
-    Emite habilitar_input para que la Vista desbloquee la Entry.
-    Bloquea el hilo del juego; tkinter sigue respondiendo.
+    Request player input without blocking UI thread.
+    
+    Replaces builtin input() throughout game logic. Shows prompt in main
+    text area, enables input field, then blocks calling (worker) thread
+    until Vista delivers response. Tkinter event loop remains active.
+    
+    Args:
+        prompt (str, optional): Text to display before input field. Defaults to "".
+    
+    Returns:
+        str: Player's input from Vista
+    
+    Implementation:
+        1. Emit prompt to text panel if provided
+        2. Signal Vista to enable input field
+        3. Block worker thread at _bridge.esperar()
+        4. Vista detects Enter, calls _bridge.recibir(text)
+        5. Worker thread unblocks and returns input
     """
     if prompt:
         emitir("preguntar", prompt)
@@ -128,175 +213,250 @@ def pedir_input(prompt=""):
     return _bridge.esperar()
 
 
-# ================== SISTEMA DE MENSAJES (MODELO -> VISTA) ==================
-# El modelo nunca imprime directamente. Deposita mensajes en esta cola.
-# La Vista (tkinter) la vacia y renderiza cada mensaje segun su tipo.
+# ==============================================================================
+# Message Queue: Model -> View Communication
+# ==============================================================================
+# Game logic never prints directly. Instead, it emits messages to cola_mensajes
+# which Vista consumes and renders according to message type. This decouples
+# game logic from presentation layer.
 #
-# Tipos de mensaje:
-#   "narrar"           → texto narrativo, itálica tenue
-#   "alerta"           → peligro, rojo
-#   "exito"            → recompensa, amarillo
-#   "sistema"          → guardado/carga, cian
-#   "titulo"           → separador con título
-#   "separador"        → línea divisoria
-#   "preguntar"        → prompt al jugador
-#   "dialogo"          → diálogo de personaje
-#   "susurros"         → texto de susurros, centrado rojo tenue
-#   "panel"            → cuadro con título y cuerpo (finales, intro)
-#   "stats"            → dict con estadísticas del personaje
-#   "hud_combate"      → dict con vida jugador y enemigo
-#   "opciones_combate" → dict con armas disponibles y pociones
-#   "menu_principal"   → señal para mostrar el menú de inicio
-#   "titulo_juego"     → pantalla de título del juego
+# Message Types:
+#     "narrar"           : Narrative text in italic gray
+#     "alerta"           : Danger/warning in red
+#     "exito"            : Achievement/reward in yellow
+#     "sistema"          : System events (save/load) in cyan
+#     "titulo"           : Section separator with title
+#     "separador"        : Horizontal rule
+#     "preguntar"        : Player prompt (command request)
+#     "dialogo"          : NPC dialogue in white
+#     "susurros"         : Whispers in dark red, centered
+#     "panel"            : Framed box (endings, intro)
+#     "stats"            : Character statistics dict
+#     "hud_combate"      : Combat stats (player/enemy HP)
+#     "opciones_combate" : Available weapons and potions
+#     "menu_principal"   : Game title screen signal
+#     "titulo_juego"     : Game title display
+#
+# Usage: emitir("tipo", contenido) deposits message. Vista retrieves and renders.
 
 cola_mensajes = deque()
 
+
 def emitir(tipo, contenido=""):
-    """Deposita un mensaje en la cola para que la Vista lo muestre."""
+    """
+    Deposit message for Vista to consume and render.
+    
+    All game output flows through this function. Enables decoupling of
+    game logic from UI presentation layer. Thread-safe via deque.
+    
+    Args:
+        tipo (str): Message type (see queue documentation above)
+        contenido (str or dict, optional): Message payload. Defaults to "".
+    """
     cola_mensajes.append({"tipo": tipo, "contenido": contenido})
 
+
 def panel(texto, titulo="", estilo="red"):
-    """Atajo para emitir un panel con título y cuerpo de texto."""
+    """
+    Emit a framed message panel (shorthand).
+    
+    Convenience wrapper for common panel emissions (game endings, intro, etc).
+    
+    Args:
+        texto (str): Main panel content
+        titulo (str, optional): Panel title. Defaults to "".
+        estilo (str, optional): Panel style/color. Defaults to "red".
+    """
     emitir("panel", {"texto": texto, "titulo": titulo, "estilo": estilo})
 
-# ================== ESTADO GLOBAL INICIAL ==================
-# Todas las variables mutables de sesión en un único contenedor.
-# Ninguna función necesita declaración "global" para modificarlas.
+
+# ==============================================================================
+# Global State: Single Mutable Container for Session Data
+# ==============================================================================
+# All session-mutable variables collected in one dict. No function requires
+# 'global' keyword to mutate estado fields. Simplifies debugging and state
+# inspection. Initialize with sensible defaults.
+
 estado: dict = {
-    "armas_jugador":     {},
-    "ruta_jugador":      [],
-    "pasos_nivel2":      [],
-    "pasos_secretos":    [],
+    "armas_jugador": {},
+    "ruta_jugador": [],
+    "pasos_nivel2": [],
+    "pasos_secretos": [],
     "eventos_superados": 0,
-    "veces_guardado":    0,
-    "_c01":  0,
-    "bolsa_eventos":     [],
+    "veces_guardado": 0,
+    "_c01": 0,
+    "bolsa_eventos": [],
     "bolsa_exploracion": [],
 }
 
-# ================== LOGGING INFRASTRUCTURE (PASO 8) ==================
-# Sistema de logging no-intrusive para debugging.
-# Activar/desactivar con la variable DEBUG_MODE.
+# ==============================================================================
+# Debug Logging: Non-Intrusive Performance & Logic Tracing
+# ==============================================================================
+# Optional logging infrastructure for development. Set DEBUG_MODE = True
+# to enable file-based logs without impacting game UI. Logs written to
+# adjacent debug folder (/0.7/Documentos Debug Performance).
 
-DEBUG_MODE = True  # Cambiar a True para activar debugging
+DEBUG_MODE = False  # Set True to enable debug logging
 
-# Crear carpeta para logs de debug y performance
-DEBUG_FOLDER = "C:\\Users\\User\\Desktop\\codigos\\TLDRDC\\0.7\\Documentos Debug Performance"
+DEBUG_FOLDER = os.path.expanduser(
+    "~/Desktop/codigos/TLDRDC/0.7/Documentos Debug Performance"
+)
 os.makedirs(DEBUG_FOLDER, exist_ok=True)
 
 LOG_FILE = os.path.join(DEBUG_FOLDER, "debug.log")
 PERF_FILE = os.path.join(DEBUG_FOLDER, "performance.log")
 
+
 def _log_debug(seccion, mensaje):
     """
-    Emite un mensaje de debug al log si DEBUG_MODE está activo.
-    No interfiere con la UI del jugador.
+    Write debug message to log file (if enabled).
+    
+    Non-intrusive logging: writes to disk, never interferes with real-time
+    game UI. Useful for tracing condition evaluation, damage calculations,
+    effect application, etc. Disable DEBUG_MODE for production.
     
     Args:
-        seccion: str - categoría del log (ej: "CONDITION", "DAMAGE", "EFFECT")
-        mensaje: str - mensaje a loguear
+        seccion (str): Log category (e.g., "CONDITION", "DAMAGE", "EFFECT")
+        mensaje (str): Message to log
     """
     if not DEBUG_MODE:
         return
-    
+
     timestamp = "•"
     log_msg = f"[{timestamp}] {seccion}: {mensaje}"
-    
+
     if LOG_FILE:
         try:
             with open(LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(log_msg + "\n")
         except Exception as e:
-            print(f"Error escribiendo log: {e}")
+            print(f"Error writing log: {e}")
     else:
-        print(log_msg)  # Consola si no hay archivo
+        print(log_msg)  # Fallback to stdout
 
-# ================== VALIDATION LAYER (PASO 9) ==================
-# Sistema de validación para asegurar integridad de datos y estado consistente.
+
+# ==============================================================================
+# Validation Layer: Data Integrity Checks
+# ==============================================================================
+# Functions to validate game state consistency. Used during deserialization,
+# NPC initialization, combat state transitions, etc. Prevents invalid state
+# from propagating through game logic.
 
 def validar_habilidad(habilidad):
     """
-    Valida que una habilidad tenga la estructura y valores correctos.
-    Retorna (es_valida, mensaje_error).
+    Validate ability structure and values for consistency.
+    
+    Checks type safety and range constraints. Called during enemy spawning,
+    ability loading, stat modification, etc.
+    
+    Args:
+        habilidad (dict): Ability object to validate
+    
+    Returns:
+        tuple: (is_valid: bool, error_message: str)
+            Returns (True, "") if valid. Returns (False, message) on error.
+    
+    Validates:
+        - Required fields: nombre, tipo, prob
+        - Type constraints: nombre is non-empty str, prob ∈ [0,1], etc
+        - Conditional fields: if condicion="vida_baja" → threshold ∈ [0,1]
+        - Effect types: efecto must be valid EfectoHabilidad enum
     """
     if not isinstance(habilidad, dict):
-        return False, "Habilidad debe ser un dict"
-    
-    # Campos requeridos
+        return False, "Ability must be dict"
+
+    # Required fields check
     requeridos = ["nombre", "tipo", "prob"]
     for campo in requeridos:
         if campo not in habilidad:
-            return False, f"Falta campo requerido: {campo}"
-    
-    # Validaciones de tipo
+            return False, f"Missing required field: {campo}"
+
+    # Type validations
     if not isinstance(habilidad["nombre"], str) or not habilidad["nombre"]:
-        return False, f"nombre debe ser string no-vacío"
+        return False, "nombre: must be non-empty string"
     if habilidad["tipo"] not in ("activa", "pasiva"):
-        return False, f"tipo debe ser 'activa' o 'pasiva', no '{habilidad['tipo']}'"
-    if not (0 <= habilidad["prob"] <= 1):
-        return False, f"prob debe estar entre 0 y 1, no {habilidad['prob']}"
-    
-    # Validaciones condicionales
+        return False, f"tipo: must be 'activa' or 'pasiva', not '{habilidad['tipo']}'"
+    if not isinstance(habilidad["prob"], (int, float)) or not (0 <= habilidad["prob"] <= 1):
+        return False, f"prob: must be float ∈ [0,1], not {habilidad['prob']}"
+
+    # Conditional validation: trigger conditions
     condicion = habilidad.get("condicion", "siempre")
     if condicion not in ("siempre", "vida_baja", "vida_media"):
-        return False, f"condicion inválida: {condicion}"
-    
+        return False, f"condicion: invalid value '{condicion}'"
+
     if condicion in ("vida_baja", "vida_media"):
         threshold = habilidad.get("threshold", 0.5)
-        if not (0 <= threshold <= 1):
-            return False, f"threshold debe estar entre 0 y 1, no {threshold}"
-    
-    # Validar efecto si existe
+        if not isinstance(threshold, (int, float)) or not (0 <= threshold <= 1):
+            return False, f"threshold: must be float ∈ [0,1], not {threshold}"
+
+    # Effect type validation
     efecto = habilidad.get("efecto")
-    if efecto and efecto not in ("sangrado", "damage_boost", "stun", "armor_reduction", 
-                                  "heal", "drenaje", "recuperacion_impia", "acuchillamiento",
-                                  "esquiva_temporal", "inyeccion_quirurgica", "incision_mortal",
-                                  "golpes_furiosos", "frensi_demoniaco", "azotazo_demonico",
-                                  "reductor_armadura", "nada"):
-        return False, f"efecto inválido: {efecto}"
-    
-    # Validar valor si existe
+    efectos_validos = (
+        "sangrado", "damage_boost", "stun", "armor_reduction", "heal",
+        "drenaje", "recuperacion_impia", "acuchillamiento", "esquiva_temporal",
+        "inyeccion_quirurgica", "incision_mortal", "golpes_furiosos",
+        "frensi_demoniaco", "azotazo_demonico", "reductor_armadura", "nada"
+    )
+    if efecto and efecto not in efectos_validos:
+        return False, f"efecto: unknown effect '{efecto}'"
+
+    # Numeric parameter validation
     valor = habilidad.get("valor")
     if valor is not None and not isinstance(valor, (int, float)):
-        return False, f"valor debe ser número, no {type(valor).__name__}"
-    
+        return False, f"valor: must be number, not {type(valor).__name__}"
+
     return True, ""
+
 
 def validar_enemigo(enemigo):
     """
-    Valida que un enemigo tenga stats válidos (rango de vida, daño, etc.).
-    Retorna (es_valido, mensaje_error).
+    Validate enemy stat consistency.
+    
+    Ensures enemy objects have valid numeric ranges and required fields.
+    Called during NPC initialization, save/load, and combat state setup.
+    
+    Args:
+        enemigo (dict): Enemy object to validate
+    
+    Returns:
+        tuple: (is_valid: bool, error_message: str)
+    
+    Validates:
+        - Required fields: nombre, vida, vida_max, daño, armadura, habilidades
+        - Numeric ranges: life ≥ 0, armor ≥ 0, vida ≤ vida_max
+        - Damage tuple: [min, max] where min ≥ 0 and max ≥ min
+        - Abilities: each is valid via validar_habilidad()
     """
     if not isinstance(enemigo, dict):
-        return False, "Enemigo debe ser dict"
-    
-    # Headers requeridos
+        return False, "Enemy must be dict"
+
+    # Required fields
     requeridos = ["nombre", "vida", "vida_max", "daño", "armadura", "habilidades"]
     for campo in requeridos:
         if campo not in enemigo:
-            return False, f"Falta campo: {campo}"
-    
-    # Validaciones de rango
+            return False, f"Missing required field: {campo}"
+
+    # Numeric range validation
     if enemigo["vida"] < 0:
-        return False, f"vida no puede ser negativa: {enemigo['vida']}"
+        return False, f"vida: cannot be negative ({enemigo['vida']})"
     if enemigo["vida"] > enemigo["vida_max"]:
-        return False, f"vida > vida_max ({enemigo['vida']} > {enemigo['vida_max']})"
+        return False, f"vida: exceeds vida_max ({enemigo['vida']} > {enemigo['vida_max']})"
     if enemigo["vida_max"] <= 0:
-        return False, f"vida_max debe ser > 0, no {enemigo['vida_max']}"
+        return False, f"vida_max: must be > 0, not {enemigo['vida_max']}"
     if enemigo["armadura"] < 0:
-        return False, f"armadura no puede ser negativa: {enemigo['armadura']}"
-    
-    # Validar daño (debe ser tupla o rango)
+        return False, f"armadura: cannot be negative ({enemigo['armadura']})"
+
+    # Damage range validation
     daño = enemigo["daño"]
     if isinstance(daño, (list, tuple)) and len(daño) == 2:
         if daño[0] < 0 or daño[1] < daño[0]:
-            return False, f"daño rango inválido: {daño}"
+            return False, f"daño: invalid range {daño} (must be [min≥0, max≥min])"
     else:
-        return False, f"daño debe ser [min, max], no {daño}"
-    
-    # Validar habilidades
+        return False, f"daño: must be [min, max] tuple, not {daño}"
+
+    # Abilities validation
     if not isinstance(enemigo["habilidades"], list):
-        return False, f"habilidades debe ser lista"
+        return False, "habilidades: must be list"
     for hab in enemigo["habilidades"]:
         valida, msg = validar_habilidad(hab)
         if not valida:
