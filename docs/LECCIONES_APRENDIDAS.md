@@ -197,6 +197,85 @@ chore: mejorar .gitignore
 
 ---
 
+### Lección 11: La Sincronización es el Diablo (Bugs de Stances - 25 de Marzo)
+
+**El Bug Más Difícil**: Sistema de botones de stances (bloquear/esquivar) que parecía tener 3 bugs separados.
+
+**La Realidad**: Un ÚNICO problema de arquitectura manifestándose de 3 formas diferentes.
+
+#### El Raíz: Dos Caminos, Dos Lógicas
+
+El código permitía DOS formas de activar stance:
+1. **Click en botón** → Llamaba a `_select_stance()` 
+2. **Parser (teclado)** → Llamaba a `_enviar_input()`
+
+Problema: Usaban lógica diferente:
+- **Click**: SET simple (`_toggle_state['activa'] = 'bl'`)
+- **Parser**: ALTERNANCIA (`if activa == 'bl': activa = None; else: activa = 'bl'`)
+
+Resultado: Click → SET → redibuja ENCENDIDO ✓
+Pero luego: `_enviar_comando()` inyecta en parser → reprocesa CON ALTERNANCIA → SET vuelto NULL → redibuja APAGADO ❌
+
+#### Manifestación 1: "Doble Procesamiento"
+```
+Click "bl" → SET a "bl" → Botón ENCENDIDO
+           → _enviar_comando("bl")
+           → Parser ALTERNA: "bl" → NULL
+           → Botón APAGADO
+Resultado: Botón parpadeaba, estado final incorrecto
+```
+
+#### Manifestación 2: "Desincronización de Formatos"
+Juego dice `"bloquear"` pero UI busca `"bl"`:
+```
+Click → SET _toggle_state['activa'] = "bl" → botón ENCENDIDO ✓
+Juego emite opciones_combate con stance="bloquear"
+UI: _toggle_state['activa'] = "bloquear" (no normaliza)
+Redibuja busca: activa == 'bl' ? NO ENCUENTRA
+Botón APAGADO sin razón lógica
+```
+
+#### Manifestación 3: "Botón No Se Apaga"
+Después de atacar, stance=None pero botón sigue encendido:
+```
+Atacas, stance se usa
+Final turno: opciones_combate(..., stance=None)
+UI: if stance is not None: ... 
+    # NO ENTRA (stance es None)
+    # _toggle_state['activa'] sigue siendo 'bl' del turno anterior
+Botón mantiene "bl", redibuja encuentra activa=='bl' → ENCENDIDO
+```
+
+#### La Solución Unificada
+1. **Usar MISMO código para clicks y parser**: ALTERNANCIA en ambos
+2. **Normalizar formatos**: "bloquear" ↔ "bl" en UN solo lugar
+3. **Resetear explícitamente**: `else: _toggle_state['activa'] = None` cuando stance=None
+
+**Resultado**: 3 bugs = 1 solución simple.
+
+**Insight Original**: **Cuando veas 3 bugs que parecen independientes, busca 1 raíz de arquitectura.** Los síntomas engañan.
+
+**Insight Aplicado**: **Synchronization problems require unified source of truth.** 
+- Dos caminos diferentes = bugs
+- Un camino con normalización = limpio
+
+**Insight Para Proyectos Futuros**:
+```python
+# ❌ MAL
+if user_input == "click":
+    lógica_click()
+elif user_input == "parser":
+    lógica_parser()
+
+# ✅ BIEN  
+normalizar(user_input)  # Convert all inputs to common format
+lógica_unificada()      # ONE path for all inputs
+```
+
+**Resumen**: Este bug enseñó que **UI + Game Logic sincronización es crítica.** Estado visual debe siempre derivarse de estado lógico, con formato unificado. Jamás dejes que dos subsistemas mantengan el mismo dato con representaciones diferentes.
+
+---
+
 ## Si Vuelvo a Empezar
 
 ### Qué Repetiría

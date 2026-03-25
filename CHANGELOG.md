@@ -9,6 +9,78 @@ Este es un proyecto de aprendizaje a traves de IA, por lo que puede contener err
 
 ---
 
+## [0.2.1] - 2026-03-25
+
+### 🎯 Tema: UI Refinement y Sistema de Stances Corregido
+
+Rework visual completo del sistema de botones y fix crítico en la sincronización de las stances (bloquear/esquivar). El sistema ahora es completamente estable y juega sin errores visuales.
+
+### ✨ Added
+- **Documentación Actualizada**:
+  - [GUIA_BOTONES.md](docs/GUIA_BOTONES.md) - **ACTUALIZADA**: Información sobre sistema de stances y toggles
+  - [LECCIONES_APRENDIDAS.md](docs/LECCIONES_APRENDIDAS.md) - **ACTUALIZADA**: Lección 11 sobre bugs de sincronización botón-estado
+
+### 🎨 Changed
+- **UI/Visual Rework**: Rework completo de botones y elementos visuales
+  - Mejora en respuesta visual de botones
+  - Optimización de redibujado (menos parpadeos)
+  - Mejor feedback visual en cambios de estado
+
+### 🐛 Fixed (Sistema de Stances - 25 de Marzo)
+
+#### Bug 1: Doble Procesamiento (Líneas 4883-4897)
+- **Problema**: Click en botón llamaba `_enviar_comando()` que inyectaba el comando en el parser y lo procesaba
+- **Resultado**: El botón alternaba DOS VECES (una vez en click, otra en parser) → estado final incorrecto
+- **Síntoma**: Click "bl" no se mantenía, alternancia inconsistente entre click y parser
+- **Solución**: Cambiar `_select_stance()` para usar alternancia consistente CON parser, sin `_enviar_comando()`
+  ```python
+  # ANTES: era SET simple + _enviar_comando
+  # AHORA: ALTERNANCIA igual que parser + on_input()
+  if self._toggle_state.get('activa') == cual:
+      self._toggle_state['activa'] = None
+  else:
+      self._toggle_state['activa'] = cual
+  ```
+- **Alcance**: Clicks y parser ahora completamente sincronizados ✅
+
+#### Bug 2: Desincronización de Formatos (Líneas 5188-5201)
+- **Problema**: UI usa `"bl"` / `"esq"`, pero juego usa `"bloquear"` / `"esquivar"`
+- **Resultado**: Botón parpadeaba en primera activación (se enciende, luego se apaga)
+- **Síntoma**: `_toggle_state['activa'] = "bloquear"` pero `_actualizar_stances_visual()` busca `activa == 'bl'` → no encuentra → botón APAGADO
+- **Solución**: Normalizar formato en `actualizar_botones_combate()`
+  ```python
+  stance_normalizado = {
+      "bloquear": "bl",
+      "esquivar": "esq"
+  }.get(stance, stance)
+  self._toggle_state['activa'] = stance_normalizado
+  ```
+- **Alcance**: Estado visual consistente con estado lógico ✅
+
+#### Bug 3: Botón No Se Apagaba Post-Turno (Líneas 5188-5201)
+- **Problema**: Después de atacar, la stance se desactivaba (state=None) pero el botón permanecía encendido
+- **Causa**: En `actualizar_botones_combate()`, si `stance is None` no hacía nada → `_toggle_state['activa']` guardaba "bl" del turno anterior
+- **Síntoma**: Siguiente turno comienza con botón encendido pero stance NULL → visual ≠ lógico
+- **Solución**: Agregar `else` explícito
+  ```python
+  if stance is not None:
+      # ... normalizar
+  else:
+      self._toggle_state['activa'] = None  # ← Reset cuando stance=None
+  self._actualizar_stances_visual()
+  ```
+- **Alcance**: Botones se apagan correctamente al final de turno ✅
+
+#### Resultado Final
+Sistema de stances completamente funcional:
+- ✅ Click enciende/apaga botón consistentemente
+- ✅ Parser y clicks tienen mismo comportamiento  
+- ✅ Estado visual siempre sincronizado con estado lógico
+- ✅ Botón se apaga al final de turno
+- ✅ Formato de datos centralizado
+
+---
+
 ## [0.2.0] - 2026-03-22
 
 ### 🎯 Tema: Modularización, Refactorización y Profesionalización

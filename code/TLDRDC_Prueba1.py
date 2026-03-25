@@ -4883,9 +4883,15 @@ class Vista:
         def _select_stance(cual):
             if not self._en_combate:
                 return  # Ignorar clicks fuera de combate
-            self._toggle_state['activa'] = cual  # Simply SET, don't toggle
+            # ALTERNANCIA: igual que parser (evita doble procesamiento)
+            if self._toggle_state.get('activa') == cual:
+                self._toggle_state['activa'] = None
+            else:
+                self._toggle_state['activa'] = cual
             self._actualizar_stances_visual()
-            self._enviar_comando(cual)  # Envía "bl" o "esq"
+            # Notificar al juego SIN inyectar al parser (evita doble procesamiento)
+            if self.on_input:
+                self.on_input(cual)
         
         cvs_bl.bind("<Button-1>", lambda e: _select_stance("bl"))
         cvs_esq.bind("<Button-1>", lambda e: _select_stance("esq"))
@@ -5186,9 +5192,17 @@ class Vista:
         
         # --- Actualizar STANCES (fila 1) ---
         # El estado se mantiene en _toggle_state, actualizar visualmente
-        # Solo actualizar si viene comando del parser (stance != None)
+        # Normalizar formato: juego usa "bloquear"/"esquivar", UI usa "bl"/"esq"
         if stance is not None:
-            self._toggle_state['activa'] = stance
+            # Convertir formato del juego al formato de UI
+            stance_normalizado = {
+                "bloquear": "bl",
+                "esquivar": "esq"
+            }.get(stance, stance)  # Si no está en el diccionario, usar tal cual
+            self._toggle_state['activa'] = stance_normalizado
+        else:
+            # Si NO hay stance (fin de turno), apagar el botón
+            self._toggle_state['activa'] = None
         self._actualizar_stances_visual()
         
         # --- Actualizar ACCIONES (fila 2) ---

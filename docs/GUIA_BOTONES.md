@@ -12,6 +12,7 @@ Esta guía te enseña **cómo modificar los botones** del juego sin romper nada.
 4. [Cambiar posición](#4-cambiar-posición)
 5. [Cambiar tamaño](#5-cambiar-tamaño)
 6. [Cambiar comportamiento (activo/inactivo)](#6-cambiar-comportamiento-activoinactivo)
+6.1. [Sistema de Stances (Bloquear/Esquivar)](#61-sistema-de-stances-bloquearesquivar)
 7. [Agregar un nuevo botón](#7-agregar-un-nuevo-botón)
 8. [Debugging: Qué hacer si algo sale mal](#8-debugging-qué-hacer-si-algo-sale-mal)
 
@@ -389,6 +390,167 @@ TERMINA COMBATE:
   _en_combate = False
   ↓
   Todos los botones GRISES de nuevo
+```
+
+---
+
+## 6.1. Sistema de Stances (Bloquear/Esquivar)
+
+### 🔍 Abre: `code/TLDRDC_Prueba1.py` (líneas 4883-4897, 5188-5201)
+
+Los botones de Stance (Bloquear/Esquivar) son especiales: son **botones toggle** (se encienden/apagan).
+
+### ¿Cómo funcionan?
+
+#### **Estado Interno**
+
+```python
+# Línea 4867:
+self._toggle_state = {}  # Diccionario global de stances
+
+# Durante combate se rellena:
+self._toggle_state['activa'] = 'bl'    # "bl" = bloquear
+self._toggle_state['activa'] = 'esq'   # "esq" = esquivar
+self._toggle_state['activa'] = None    # None = ninguno
+```
+
+#### **Dos Formas de Activarlos**
+
+**Opción 1: Click en botón** (Línea 4883-4897)
+
+```python
+def _select_stance(cual):
+    if not self._en_combate:
+        return  # Solo funciona en combate
+    
+    # ALTERNANCIA: si ya está activa, desactiva; si no, activa
+    if self._toggle_state.get('activa') == cual:
+        self._toggle_state['activa'] = None  # Desactivar
+    else:
+        self._toggle_state['activa'] = cual  # Activar
+    
+    self._actualizar_stances_visual()        # Redibuja botones
+    if self.on_input:
+        self.on_input(cual)                  # Notifica al juego
+```
+
+**Opción 2: Escribir en parser** (Línea 5336-5350)
+
+```python
+# Usuario escribe: "bl", "blo", "bloquear", "esq", "esquiva", "esquivar"
+if texto_lower in abrev_stance and self._en_combate:
+    stance_key = abrev_stance[texto_lower]
+    # MISMA ALTERNANCIA que clicks
+    if self._toggle_state.get('activa') == stance_key:
+        self._toggle_state['activa'] = None
+    else:
+        self._toggle_state['activa'] = stance_key
+    self._actualizar_stances_visual()
+```
+
+**Resultado**: Clicks y parser tienen **exactamente el mismo comportamiento** (sincronización).
+
+#### **Cómo se Dibuja Visualmente**
+
+```python
+# Línea 5131-5150: _actualizar_stances_visual()
+activa = self._toggle_state.get('activa')
+
+bl_activo = (activa == 'bl')      # ¿Está "Bloquear" activo?
+esq_activo = (activa == 'esq')    # ¿Está "Esquivar" activo?
+
+# Si bl_activo=True → Botón ROJO
+# Si bl_activo=False → Botón GRIS
+# (Igual para Esquivar)
+```
+
+#### **Naturalización de Formatos** ⚠️ Important
+
+El juego usa diferentes nombres que la UI:
+
+```python
+# Línea 5188-5201: actualizar_botones_combate()
+
+# Juego dice: "bloquear" o "esquivar"   
+# Pero UI guarda: "bl" o "esq"
+
+if stance is not None:
+    stance_normalizado = {
+        "bloquear": "bl",    # ← Conversión
+        "esquivar": "esq"    # ← Conversión
+    }.get(stance, stance)
+    self._toggle_state['activa'] = stance_normalizado
+else:
+    # Final de turno: desactivar
+    self._toggle_state['activa'] = None
+
+self._actualizar_stances_visual()
+```
+
+### Ciclo Completo (Un Turno de Combate)
+
+```
+1. INICIO TURNO
+   desplegaste botones con stance=None
+   ├─ _toggle_state['activa'] = None
+   ├─ Botones GRISES
+
+2. JUGADOR ELIGE
+   ├─ Click "Bloquear" O escribe "bl"
+   ├─ _toggle_state['activa'] = 'bl'
+   ├─ Botón "Bloquear" se pone ROJO ✓
+
+3. ATAQUE DEL JUGADOR
+   ├─ Se usa stance 'bl' para modificar daño
+   ├─ Se ejecuta turno enemigo
+
+4. FIN DE TURNO
+   ├─ Emite opciones_combate(..., stance=None)
+   ├─ Vista: _toggle_state['activa'] = None
+   ├─ Todos los botones se ponen GRISES
+   └─ VUELVE A PASO 1
+```
+
+### Modificar Comportamiento de Stances
+
+Si quieres cambiar cómo funcionan (muy avanzado):
+
+**Cambiar a "Radio Button" Manual** (Solo 1 activo, nunca nada)
+
+```python
+# ANTES (línea 4886-4889): Alternancia con posibilidad de None
+if self._toggle_state.get('activa') == cual:
+    self._toggle_state['activa'] = None  # ← Permite apagar
+
+# DESPUÉS: Solo cambiar entre opciones (siempre algo activo)
+self._toggle_state['activa'] = cual  # ← Nunca None
+```
+
+**Agregar Una Tercera Stance**
+
+```python
+# Paso 1: Crear botón (línea ~4725)
+cvs_contraataque = self._boton(
+    self._area_botones, "⚔️ Contraatacar", None,
+    activo=False, row=0, col=4, forma="circulo", imagen="contraataque"
+)
+self._botones_stances['contraataque'] = cvs_contraataque
+cvs_contraataque.bind("<Button-1>", lambda e: _select_stance("ca"))
+
+# Paso 2: Normalizar formato (línea ~5193)
+stance_normalizado = {
+    "bloquear": "bl",
+    "esquivar": "esq",
+    "contraataque": "ca",  # ← Añadir
+}.get(stance, stance)
+
+# Paso 3: Actualizar visual (línea ~5138-5139)
+# Agregar las líneas para la tercera stance
+ca_activo = (activa == 'ca')
+self._redibujar_boton(
+    self._botones_stances['contraataque'],
+    "⚔️ Contraatacar", ca_activo, "circulo",
+)
 ```
 
 ---
