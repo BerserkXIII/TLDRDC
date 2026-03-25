@@ -4561,7 +4561,7 @@ class Vista:
     BTN_FONT       = ("Consolas", 10)
     BTN_PADX       = 10
     BTN_PADY       = 5
-    BOTONES_AREA_HEIGHT = 160  # Altura FIJA del área de botones (px). Ajusta aquí, no cambia el panel.
+    BOTONES_AREA_HEIGHT = 340  # Altura FIJA del área de botones (px). Ajusta aquí, no cambia el panel.
 
     # --- Velocidad typewriter (ms por letra) ---
     VELOCIDAD_TYPEWRITER = {
@@ -4857,9 +4857,9 @@ class Vista:
         # 3 filas con altura proporcional
         # Suma minsize: 50 + 55 + 50 = 155px < 160px (sobrante = 5px)
         # Fila 1 (armas) con weight=1 absorbe espacio sobrante → 60px final
-        self._area_botones.rowconfigure(0, weight=0, minsize=50)   # Stances (compacto)
-        self._area_botones.rowconfigure(1, weight=1, minsize=55)   # Armas (crece flexiblemente)
-        self._area_botones.rowconfigure(2, weight=0, minsize=50)   # Acciones (compacto)
+        self._area_botones.rowconfigure(0, weight=0, minsize=80)   # Stances (compacto)
+        self._area_botones.rowconfigure(1, weight=0, minsize=200)   # Armas (crece flexiblemente)
+        self._area_botones.rowconfigure(2, weight=0, minsize=65)   # Acciones (compacto)
         
         self._botones_armas = {}
         self._botones_stances = {}

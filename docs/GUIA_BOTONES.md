@@ -220,7 +220,7 @@ self._area_botones = tk.Frame(
     parent, bg=COLORES["fondo_panel"], height=self.BOTONES_AREA_HEIGHT
 )
 
-# El valor BOTONES_AREA_HEIGHT está en línea 4402:
+# El valor BOTONES_AREA_HEIGHT está en línea 4564:
 BOTONES_AREA_HEIGHT = 160  # Pixel totales: 160px
 ```
 
@@ -240,7 +240,7 @@ BOTONES_AREA_HEIGHT = 120
 #### **Nivel 2: Altura de cada fila**
 
 ```python
-# Líneas 4692-4695:
+# Líneas 4782:
 self._area_botones.rowconfigure(0, weight=0, minsize=50)   # Fila 0: Stances (50px)
 self._area_botones.rowconfigure(1, weight=1, minsize=55)   # Fila 1: Armas (55px, puede crecer)
 self._area_botones.rowconfigure(2, weight=0, minsize=50)   # Fila 2: Acciones (50px)
