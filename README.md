@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-![Status](https://img.shields.io/badge/Status-v0.2.1-orange?style=flat-square)
+![Status](https://img.shields.io/badge/Status-v0.2.2-orange?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square)
 
 > **⚠️ NOTA DE TRANSPARENCIA**: Este es un proyecto de **aprendizaje autodidacta** realizado por un programador principiante (*super-low level*) **con asistencia significativa de IA**. La arquitectura, sintaxis y refactorizaciones han sido heavily aided por GitHub Copilot. Este repositorio existe como **documentación honesta de aprendizaje**, no como código profesional paritario. Agradezco cualquier feedback, crítica constructiva y ayuda de la comunidad. 🙏
@@ -27,7 +27,7 @@ Un juego de **roguelike basado en texto** construido con Python y Tkinter. El ju
 - **Sistema de Secretos**: Mecanismos ocultos que alteran la narrativa
 - **UI Gráfica**: Interfaz con Tkinter (trabajo en progreso)
 
-> **Estado Actual**: v0.2.1 - UI Refinement y Sistema de Stances Corregido, completamente funcional
+> **Estado Actual**: v0.2.2 - Sistema de Botones PNG Finalized, Refactoring Completo, Bug de Combate Forrix Fixed
 
 ---
 

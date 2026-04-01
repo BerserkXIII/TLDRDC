@@ -9,6 +9,47 @@ Este es un proyecto de aprendizaje a traves de IA, por lo que puede contener err
 
 ---
 
+## [0.2.2] - 2026-04-01
+
+### 🎯 Tema: Refactoring a PNG-only Buttons + Bug Fixes
+
+Migración completa del sistema de botones: eliminación de formas geométricas (polígonos), implementación de sprites PNG como interfaz única. Corrección del bug de transición en combate contra Forrix. Limpieza de código muerto.
+
+### ✨ Added
+- **Documentación de Refactoring ISTQB**:
+  - [REFACTORING_IMAGES_ISTQB_ANALYSIS.md](docs/REFACTORING_IMAGES_ISTQB_ANALYSIS.md) - Análisis didáctico del proceso de refactoring usando principios ISTQB
+
+### 🎨 Changed
+- **Arquitectura de Botones**: Migración de formas geométricas → PNG sprites
+  - Eliminado sistema de polígonos escalables (rombo, hexágono, escudo, octógono)
+  - Canvas ahora renderiza solo imágenes PNG + texto fallback
+  - Función `_dibujar()` simplificada (~50% menos código)
+  
+- **Limpieza de Código**:
+  - Eliminado `FORMAS_BTN` de `ui_config.py` (código muerto referenciado en 4 lugares)
+  - Eliminados colores huérfanos: `boton_fg`, `boton_bg`, `boton_hover`
+  - Actualizado `modules/__init__.py` para no exportar `FORMAS_BTN`
+  - Mantenidos: `boton_activo`, `boton_inactivo` (color de texto)
+
+### 🐛 Fixed
+
+#### Bug: Combate Forrix sin Introducción (Línea 2977-2986)
+- **Problema**: Cuando inicia combate vs Forrix, no hay transición clara entre descripción y combate
+- **Síntoma**: Parece que el juego "se congela" sin aviso
+- **Causa Raíz**: `crear_carcelero()` termina con diálogo sin separador visual
+- **Solución**: 
+  - Añadido `emitir("separador")` antes de combate
+  - Añadido `sistema("¡¡¡COMIENZA EL COMBATE!!!")` como transición explícita
+  - Ahora la transición es clara entre introducción (narración) y combate (HUD + turnos)
+
+### 📊 Métricas de Cambio
+- **Archivos modificados**: 4 (`ui_config.py`, `__init__.py`, `TLDRDC_Prueba1.py`, `CHANGELOG.md`)
+- **Líneas eliminadas**: ~80 (código muerto de formas)
+- **Líneas agregadas**: ~50 (separadores, mensajes de transición)
+- **Cambios de API**: 0 (cambios internos, sin impacto en interfaz)
+
+---
+
 ## [0.2.1] - 2026-03-25
 
 ### 🎯 Tema: UI Refinement y Sistema de Stances Corregido

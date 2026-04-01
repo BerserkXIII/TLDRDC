@@ -27,9 +27,6 @@ COLORES = {
     "preguntar":       "#dddddd",      # Preguntas/turnos
     "titulo":          "#cc2222",      # Títulos
     "separador":       "#333333",      # Líneas separadoras
-    "boton_fg":        "#cccccc",      # Texto botones
-    "boton_bg":        "#1a1a1a",      # Fondo botones inactivos
-    "boton_hover":     "#3a0a0a",      # Hover en botones
     "boton_activo":    "#cc4444",      # Botones disponibles
     "boton_inactivo":  "#333333",      # Botones bloqueados
     "stats_fg":        "#999999",      # Texto stats
@@ -39,29 +36,6 @@ COLORES = {
     "parser_cursor":   "#cc2222",      # Cursor parser
 }
 
-# ════════════════════════════════════════════════════════════════════
-# FORMAS DE BOTONES (polígonos normalizados 0-1)
-# ════════════════════════════════════════════════════════════════════
-
-FORMAS_BTN = {
-    # Rombo / diamante — armas pesadas y esquivar
-    "rombo":    [(0.50, 0.04), (0.97, 0.50), (0.50, 0.96), (0.03, 0.50)],
-    
-    # Hexágono vertical — armas sutiles
-    "hexagono": [(0.25, 0.04), (0.75, 0.04), (0.97, 0.50),
-                 (0.75, 0.96), (0.25, 0.96), (0.03, 0.50)],
-    
-    # Escudo — bloquear
-    "escudo":   [(0.08, 0.04), (0.92, 0.04), (0.92, 0.58),
-                 (0.50, 0.97), (0.08, 0.58)],
-    
-    # Octógono — armas mixtas
-    "octagono": [(0.30, 0.04), (0.70, 0.04), (0.96, 0.30), (0.96, 0.70),
-                 (0.70, 0.96), (0.30, 0.96), (0.04, 0.70), (0.04, 0.30)],
-    
-    "circulo":  None,   # usa create_oval
-    "rect":     None,   # rectángulo plano (fallback)
-}
 
 # ════════════════════════════════════════════════════════════════════
 # RUTAS DE IMÁGENES PARA PANELES

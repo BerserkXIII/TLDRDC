@@ -43,9 +43,10 @@ sys.path.insert(0, _proyecto_root)
 # Load UI configuration module (colors, button shapes, image paths).
 # PIL is optional; without it, only PNG images load natively.
 try:
-    from modules.ui_config import COLORES, FORMAS_BTN, RUTAS_IMAGENES_PANELES
+    from modules.ui_config import COLORES, RUTAS_IMAGENES_PANELES
     from modules.ui_imagen_manager import imagen_manager
     from modules.ui_estructura import estructura_ui
+    from modules.reactive import Personaje
     MODULOS_DISPONIBLES = True
 except ImportError as e:
     print(f"Error: UI modules not found: {e}")
@@ -665,6 +666,11 @@ def cargar_partida():
         if not campos_req.issubset(personaje.keys()):
             alerta("✘ El guardado está incompleto o dañado.")
             return None
+        
+        # CRÍTICO: Sincronizar armas en personaje (se guardan en estado pero no en personaje)
+        # Esto asegura que personaje_global.get("armas") tenga los datos correctos al cargar
+        personaje["armas"] = data.get("armas_jugador", {})
+        
         return personaje
     except json.JSONDecodeError as e:
         alerta(f"✘ El archivo de guardado está corrupto: {e}")
@@ -705,6 +711,9 @@ def intentar_guardar(personaje):
 
 
 personaje_global = None
+# Callback inyectado para sincronizar UI después de cambios en armas durante exploración
+_callback_ui_armas = None
+vista_global = None  # Referencia a Vista para registro de observadores desde main()
 
 # ================== PROGRESO NIVEL 2 ====================
 
@@ -767,6 +776,7 @@ def crear_personaje():
         "evento_brazos_segundo_completado":   False,
         "bolsa_acecho":                       [1, 2, 3],
         "_x9f": False,
+        "armas": {},  # NUEVA PARTIDA: inventario de armas vacío al inicio
     }
     preguntar("\n¿Eras fuerte o ágil? No puedes ser fuerte y ágil al mismo tiempo..."
               "La carne solo tolera una bendición antes de desgarrarse bajo el peso de otra. ¿Qué parte de ti ha sobrevivido?")
@@ -805,6 +815,23 @@ def crear_personaje():
 
 # ================== ARMAS ==================
 
+# Mapeo de nombres de armas display → nombres de archivo sprite
+# Usado para cargar PNG de sprites dinámicamente
+_ARMAS_DISPLAY_A_SPRITE = {
+    "daga": "daga",
+    "espada": "espada",
+    "martillo": "martillo",
+    "porra": "porra",
+    "maza": "maza",
+    "lanza": "lanza",
+    "estoque": "estoque",
+    "cimitarra": "cimitarra",
+    "Mano de Dios": "mano_dios",
+    "Hoz de Sangre": "hoz_sangre",
+    "Hoja de la Noche": "hoja_noche",
+    "Hacha Maldita": "hacha_maldita",
+}
+
 # Base de datos de todas las armas disponibles
 armas_global = {
     # Armas básicas
@@ -821,7 +848,7 @@ armas_global = {
     "Hoz de Sangre": {"daño": 5, "golpe": 85, "vida": 1, "sangrado": 1, "tipo": "mixta"},
     "Hoja de la Noche": {"daño": 8, "golpe": 75, "vida": 2, "stun": 1, "tipo": "mixta"},
     # Armas únicas de evento
-    "Hacha Ritual": {"daño": 7, "golpe": 75, "tipo": "pesada", "auto_daño": 1}
+    "Hacha Maldita": {"daño": 7, "golpe": 75, "tipo": "pesada", "auto_daño": 1}
 }
 
 
@@ -856,7 +883,7 @@ _ABREVIATURAS_ARMAS: dict = {
     "man": "Mano de Dios",
     "hoz": "Hoz de Sangre",
     "hoj": "Hoja de la Noche",
-    "hac": "Hacha Ritual",
+    "hac": "Hacha Maldita",
 }
 
 
@@ -877,11 +904,13 @@ def añadir_arma(personaje, nueva_arma):
             descartar_real = abreviaturas.get(descartar, descartar)
             if descartar_real in estado["armas_jugador"]:
                 del estado["armas_jugador"][descartar_real]
+                personaje["armas"] = estado["armas_jugador"].copy()  # SYNC: Actualizar UI reactivamente
                 sistema(f"Has descartado {descartar_real}.")
                 break
             else:
                 alerta("No tienes esa arma. Intenta de nuevo.")
     estado["armas_jugador"][nombre_real] = armas_global[nombre_real].copy()
+    personaje["armas"] = estado["armas_jugador"].copy()  # SYNC: Actualizar UI reactivamente
     exito(f"Has conseguido {nombre_real}.")
     sistema(f"Armas disponibles: {list(estado["armas_jugador"].keys())}")
 
@@ -929,6 +958,9 @@ def celda_inicial(personaje):
         "Pero debiste perder la última..."
     )
     estado["armas_jugador"]["daga"] = armas_global["daga"].copy()
+    # CRÍTICO: Sincronizar armas iniciales con UI para que se muestren los sprites
+    personaje["armas"] = estado["armas_jugador"].copy()
+    
     while True:
         preguntar("¿Rebuscas en el cadáver? (s/n)")
         resp = leer_input("> ", personaje)
@@ -936,6 +968,8 @@ def celda_inicial(personaje):
             narrar("Encuentras una espada oxidada y una poción entre los harapos del prisionero.")
             personaje["pociones"] += 1
             estado["armas_jugador"]["espada"] = armas_global["espada"].copy()
+            # CRÍTICO: Sincronizar nueva arma con UI para que se muestre el sprite
+            personaje["armas"] = estado["armas_jugador"].copy()
             break
         elif resp in ["n", "no"]:
             narrar("Decides no rebuscar en el cadáver.")
@@ -2078,8 +2112,8 @@ def _explorar_paso(personaje):
                     narrar("No sientes pena, no sientes nada. Solo la urgencia de tomar esa hacha y usarla.")
                     narrar("El hacha tiene el mango dentado, hecho por un artesano loco, fanatico del dolor.")
                     narrar("Al sentir como el hacha hiere tus manos, te sientes mas fuerte. No sientes dolor, solo ira.")
-                    alerta("El Hacha Ritual inflige daño brutal, pero cada golpe certero también te desgarra a ti.")
-                    añadir_arma(personaje, "Hacha Ritual")
+                    alerta("El Hacha Maldita inflige daño brutal, pero cada golpe certero también te desgarra a ti.")
+                    añadir_arma(personaje, "Hacha Maldita")
 
     elif resp == "d" and textos_exploracion == 15:
         narrar("Giras a la izquierda.")
@@ -2182,8 +2216,8 @@ def _explorar_paso(personaje):
                     narrar("No sientes pena, no sientes nada. Solo la urgencia de tomar esa hacha y usarla.")
                     narrar("El hacha tiene el mango dentado, hecho por un artesano loco, fanatico del dolor.")
                     narrar("Al sentir como el hacha hiere tus manos, te sientes mas fuerte. No sientes dolor, solo ira.")
-                    alerta("El Hacha Ritual inflige daño brutal, pero cada golpe certero también te desgarra a ti.")
-                    añadir_arma(personaje, "Hacha Ritual")
+                    alerta("El Hacha Maldita inflige daño brutal, pero cada golpe certero también te desgarra a ti.")
+                    añadir_arma(personaje, "Hacha Maldita")
 
     if personaje.get("_huyo_combate", False):
         reiniciar_camino_por_huida(personaje)
@@ -2525,6 +2559,15 @@ _KEYS_VALIDAS: frozenset = frozenset({
 })
 
 def aplicar_evento(evento, personaje):
+    """Aplica cambios de evento a un personaje.
+    
+    Soporta los siguientes campos (claves en el diccionario 'evento'):
+    - vida, armadura, fuerza, destreza: incrementadores de stats
+    - pociones: número de pociones a sumar
+    - armas: dict {nombre: stats_dict} de armas a obtener
+    
+    CRITICO: Después de cambios en armas, sincroniza la UI adjuntando un callback.
+    """
     # Aplica los cambios del evento al personaje
     for key, valor in evento.items():
         # ---------------- VIDA ----------------
@@ -2588,6 +2631,10 @@ def aplicar_evento(evento, personaje):
         elif key == "armas":
             for arma, stats in valor.items():
                 añadir_arma(personaje, arma)
+            # CRITICO: Sincronizar UI después de cambiar armas
+            # Esto asegura que los sprites se actualicen inmediatamente
+            if _callback_ui_armas is not None:
+                _callback_ui_armas()
         # ---------------- OTROS ----------------
         else:
             if key not in _KEYS_VALIDAS:
@@ -2930,12 +2977,18 @@ def crear_carcelero():
     f"{'¡Te vi merodear! ¡Te vi oler las puertas!\n¡Este sitio es mío… ¡¡MÍO!!\n'
     '¡El amo dijo que nadie baja… nadie toma la llave…\n¡¡Y yo obedezco!! ¡¡¡Yo siempre obedezco!!!'.upper()}"
     )
-    return {"nombre": "Forrix, el Carcelero","vida": 30,"vida_max": 30,"daño": (4, 6),"jefe": True,"esquiva": 3,"armadura": 0,
+    
+    # Transición clara hacia el combate
+    emitir("separador")
+    sistema("¡¡¡COMIENZA EL COMBATE!!!")
+    
+    enemigo = {"nombre": "Forrix, el Carcelero","vida": 30,"vida_max": 30,"daño": (4, 6),"jefe": True,"esquiva": 3,"armadura": 0,
             "habilidades": [
                 {"nombre": "Gancho de Carnicero", "tipo": "pasiva", "prob": 0.25, "condicion": "siempre", "efecto": "sangrado", "valor": 1},
                 {"nombre": "Recuperacion Impia", "tipo": "activa", "prob": 1.0, "condicion": "vida_baja", "threshold": 0.6, "efecto": "recuperacion_impia"}
             ],
             "_efectos_temporales": {}}
+    return enemigo
 
 def crear_amo_mazmorra(personaje):
     if "Hoz de Sangre" in estado["armas_jugador"]:
@@ -3745,10 +3798,11 @@ def turno_jugador(personaje, enemigo):
 
     while True:
         emitir("opciones_combate", {
-            "armas":           list(estado["armas_jugador"].keys()),
-            "pociones":        personaje["pociones"],
-            "huida_bloqueada": huida_intentada,
-            "stance":          stance,
+            "armas":               list(estado["armas_jugador"].keys()),
+            "pociones":            personaje["pociones"],
+            "huida_bloqueada":     huida_intentada,
+            "pocion_usada_turno":  pocion_usada_turno,
+            "stance":              stance,
         })
         eleccion = leer_input("→ Acción: ", personaje).lower()  # TODO: tkinter callback
         accion = abreviaturas.get(eleccion, eleccion)
@@ -4458,7 +4512,7 @@ def resolver_eventos_post_combate(personaje, enemigo):
 # CONFIGURACIÓN VISUAL CENTRALIZADA
 # ════════════════════════════════════════════════════════════════════
 # Las siguientes variables ahora viven en módulos separados:
-# - COLORES, FORMAS_BTN, RUTAS_IMAGENES_PANELES: en ui_config.py
+# - COLORES, RUTAS_IMAGENES_PANELES: en ui_config.py
 # - imagen_manager: en ui_imagen_manager.py (carga PNG con caché)
 # - estructura_ui: en ui_estructura.py (crea paneles con Canvas + widgets)
 #
@@ -4553,7 +4607,7 @@ class Vista:
     PESO_FILA_INPUT  = 30
 
     # --- Configuracion del HUD de stats ---
-    ALTO_STATS  = 69        # px de altura de la franja de stats (25% más: 55 * 1.25)
+    ALTO_STATS  = 30        # px de altura de la franja de stats (25% más: 55 * 1.25)
     VIDA_LLENA  = "\u2665"  # simbolo corazon lleno
     VIDA_VACIA  = "\u25cb"  # simbolo corazon vacio
 
@@ -4565,9 +4619,9 @@ class Vista:
 
     # --- Velocidad typewriter (ms por letra) ---
     VELOCIDAD_TYPEWRITER = {
-        "narrar":     5,
-        "dialogo":    7,   # mas lento: mas dramatico
-        "susurros":   9,   # muy lento: inquietante
+        "narrar":     0,
+        "dialogo":    0,   # mas lento: mas dramatico
+        "susurros":   0,   # muy lento: inquietante
         "alerta":     0,   # instantaneo: urgencia
         "exito":      0,
         "sistema":    0,
@@ -4868,14 +4922,14 @@ class Vista:
         
         # --- FILA 0: STANCES (columnas 1, 3) ---
         cvs_bl = self._boton(
-            self._area_botones, "🛡 Bloquear", None,
-            activo=False, row=0, col=1, forma="escudo", imagen="bloquear"
+            self._area_botones, "", None,
+            activo=False, row=0, col=1, forma="circulo", imagen="bloqueo"
         )
         self._botones_stances['bloquear'] = cvs_bl
         
         cvs_esq = self._boton(
-            self._area_botones, "💨 Esquivar", None,
-            activo=False, row=0, col=3, forma="rombo", imagen="esquivar"
+            self._area_botones, "", None,
+            activo=False, row=0, col=3, forma="circulo", imagen="esquiva"
         )
         self._botones_stances['esquivar'] = cvs_esq
         
@@ -4900,20 +4954,20 @@ class Vista:
         for slot_name, col in [('arma1', 0), ('arma2', 2), ('arma3', 4)]:
             cvs = self._boton(
                 self._area_botones, "---", None,
-                activo=False, row=1, col=col, forma="hexagono", imagen=None
+                activo=False, row=1, col=col, forma="hexagono", imagen=None, imagen_fondo="fondo_armas"
             )
             self._botones_armas[slot_name] = cvs
         
         # --- FILA 2: ACCIONES (columnas 1, 3) ---
         cvs_pocion = self._boton(
-            self._area_botones, "Poción (0)", lambda: self._enviar_comando("p"),
-            activo=False, row=2, col=1, forma="circulo", imagen="pocion"
+            self._area_botones, "", lambda: self._enviar_comando("p"),
+            activo=False, row=2, col=1, forma="circulo", imagen="0pociones"
         )
         self._botones_acciones['pocion'] = cvs_pocion
         
         cvs_huir = self._boton(
             self._area_botones, "Huir", lambda: self._enviar_comando("h"),
-            activo=False, row=2, col=3, forma="circulo", imagen="huir"
+            activo=False, row=2, col=3, forma="circulo", imagen=None
         )
         self._botones_acciones['huir'] = cvs_huir
         
@@ -4927,16 +4981,126 @@ class Vista:
                           list(self._botones_armas.values()) + \
                           list(self._botones_acciones.values())
         
-        for cvs in todos_los_canvas:
-            # Asegurar que el Canvas tiene tamaño real antes de dibujar
-            cvs.update()
-            # Ejecutar _dibujar() manualmente si existe
-            if hasattr(cvs, '_dibujar'):
-                cvs._dibujar()
+        # CRITICAL: Ejecutar _dibujar() con root.after() para que el Canvas tenga geometría real
+        def _forzar_redraw():
+            for cvs in todos_los_canvas:
+                if hasattr(cvs, '_dibujar'):
+                    cvs._dibujar()
+        
+        self.root.after(10, _forzar_redraw)
 
     # ------------------------------------------------------------------
     # ACTUALIZACION DE STATS HUD
     # ------------------------------------------------------------------
+
+    def _registrar_observadores_personaje(self):
+        """Registra callbacks de reactividad para cambios en personaje_global.
+        Se llama desde main() DESPUÉS de que personaje_global sea creado.
+        Los callbacks se activan cuando personaje_global.activo = True.
+        
+        CRÍTICO: Todos los callbacks usan root.after() para ser thread-safe.
+        El worker thread (que modifica personaje_global) no puede tocar widgets directamente.
+        root.after() encola la actualización al main thread Tkinter.
+        
+        NOTA: Se ejecutan callbacks iniciales para sincronizar sprites al cargar partida.
+        Los cambios en armas durante exploración se sincronizan directamente desde
+        aplicar_evento() que inyecta el callback _callback_ui_armas.
+        """
+        # Observar cambios en stats - THREAD-SAFE con root.after()
+        personaje_global.observe("vida", 
+            lambda v: self.root.after(0, lambda: self.actualizar_hud(personaje_global)))
+        personaje_global.observe("armadura", 
+            lambda v: self.root.after(0, lambda: self.actualizar_hud(personaje_global)))
+        personaje_global.observe("fuerza", 
+            lambda v: self.root.after(0, lambda: self.actualizar_hud(personaje_global)))
+        personaje_global.observe("destreza", 
+            lambda v: self.root.after(0, lambda: self.actualizar_hud(personaje_global)))
+        personaje_global.observe("vida_max", 
+            lambda v: self.root.after(0, lambda: self.actualizar_hud(personaje_global)))
+        
+        # Observar cambios en pociones
+        personaje_global.observe("pociones", 
+            lambda v: self.root.after(0, lambda: self._on_pociones_cambio(v)))
+        
+        # Observar cambios en armas - THREAD-SAFE con root.after()
+        # Esto se dispara cuando se asigna personaje["armas"] desde celda_inicial o exploración
+        personaje_global.observe("armas", 
+            lambda v: self.root.after(0, lambda: self._on_armas_cambio()))
+        
+        # ═══ SINCRONIZACIÓN INICIAL: Ejecutar callbacks con valores actuales ═══
+        # Esto sincroniza los sprites con el estado actual al cargar partida guardada
+        # Los cambios en armas durante exploración se sincronizan vía observer + callback inyectado
+        self.actualizar_hud(personaje_global)
+        self._on_pociones_cambio(personaje_global.get("pociones", 0))
+        self._on_armas_cambio()
+
+    def _on_pociones_cambio(self, num_pociones):
+        """Callback reactivo: se ejecuta DESDE EL MAIN THREAD (via root.after).
+        Actualiza el sprite del botón de pociones según la cantidad disponible.
+        Muestra el sprite correspondiente a num_pociones (0-10).
+        
+        Nota: Este método ya está encolado en el main thread por root.after(),
+        así que es safe modificar widgets aquí.
+        """
+        if "pocion" in self._botones_acciones:
+            cvs = self._botones_acciones["pocion"]
+            # Limitar a 0-10 (máximo disponible)
+            num_pociones = min(max(num_pociones, 0), 10)
+            # Cambiar la imagen dinámicamente según cantidad de pociones
+            nombre_imagen = f"{num_pociones}pociones"
+            cvs._btn_imagen = nombre_imagen
+            # Marcar como activo si hay pociones disponibles
+            cvs._btn_activo = (num_pociones > 0)
+            # Forzar redibujado del canvas
+            if hasattr(cvs, '_dibujar'):
+                cvs._dibujar()
+    
+    def _on_armas_cambio(self):
+        """Callback reactivo: se ejecuta DESDE EL MAIN THREAD (via root.after).
+        Actualiza los botones de armas cuando el inventario cambia en exploración.
+        IMPORTANTE: Solo muestra SPRITES, sin texto. El inventario se ve en la pantalla narrativa.
+        """
+        if personaje_global is None:
+            return
+        
+        armas = personaje_global.get("armas", {})
+        slots = (list(armas.keys()) + ["----"] * 3)[:3]
+        
+        for i, arma_nombre in enumerate(slots):
+            slot_name = ['arma1', 'arma2', 'arma3'][i]
+            if slot_name in self._botones_armas:
+                cvs = self._botones_armas[slot_name]
+                tiene = arma_nombre != "----"
+                
+                # Actualizar estado e imagen
+                cvs._btn_texto = ""  # NO mostrar nombres en los botones
+                cvs._btn_activo = tiene
+                cvs._btn_forma = "hexagono"  # Mantener forma hexagonal siempre
+                
+                if tiene:
+                    # Intentar asignar imagen del arma
+                    # Primero intenta el nombre de display, luego el sprite name
+                    if arma_nombre in _IMG_BTN:
+                        cvs._btn_imagen = arma_nombre
+                    else:
+                        # Fallback: buscar en el mapeo inverso
+                        sprite_name = _ARMAS_DISPLAY_A_SPRITE.get(arma_nombre)
+                        if sprite_name and sprite_name in _IMG_BTN:
+                            cvs._btn_imagen = sprite_name
+                        else:
+                            # Última opción: probar si existe como lowercase
+                            lowercase_name = arma_nombre.lower()
+                            if lowercase_name in _IMG_BTN:
+                                cvs._btn_imagen = lowercase_name
+                            else:
+                                # No encontrada, dejar vacío
+                                cvs._btn_imagen = None
+                else:
+                    cvs._btn_imagen = None
+                
+                # Forzar redibujado
+                if hasattr(cvs, '_dibujar'):
+                    cvs._dibujar()
 
     def actualizar_hud(self, d):
         """
@@ -4977,17 +5141,68 @@ class Vista:
         nombres = [
             "daga", "espada", "martillo", "porra", "maza", "lanza",
             "estoque", "cimitarra", "Mano de Dios", "Hoz de Sangre",
-            "Hoja de la Noche", "Hacha Ritual",
-            "bloquear", "esquivar", "pocion", "huir",
+            "Hoja de la Noche", "Hacha Maldita",
+            "bloquear", "esquivar", "huir",
             "izquierda", "derecha", "guardar",
         ]
         for nombre in nombres:
             ruta = base / f"{nombre}.png"
-            if ruta.exists():
-                try:
-                    _IMG_BTN[nombre] = tk.PhotoImage(file=str(ruta))
-                except Exception:
-                    pass   # PNG incompatible: lo ignoramos silenciosamente
+            img = imagen_manager.cargar_imagen(str(ruta))
+            if img:
+                _IMG_BTN[nombre] = img
+        
+        # Cargar sprites dinámicos de pociones (0-10)
+        pociones_base = pathlib.Path(__file__).parent / "images" / "Botones" / "pociones"
+        for i in range(11):
+            nombre = f"{i}pociones"
+            ruta = pociones_base / f"{nombre}.png"
+            img = imagen_manager.cargar_imagen(str(ruta))
+            if img:
+                _IMG_BTN[nombre] = img
+        
+        # Cargar sprites de stances (bloqueo y esquiva)
+        stances_base = pathlib.Path(__file__).parent / "images" / "Botones" / "stances"
+        for nombre in ["bloqueo", "esquiva"]:
+            ruta = stances_base / f"{nombre}.png"
+            img = imagen_manager.cargar_imagen(str(ruta))
+            if img:
+                _IMG_BTN[nombre] = img
+        
+        # Cargar sprites de armas dinámicamente desde carpeta
+        armas_base = pathlib.Path(__file__).parent / "images" / "Botones" / "armas"
+        if armas_base.exists():
+            for archivo_png in armas_base.glob("*.png"):
+                nombre_sprite = archivo_png.stem
+                img = imagen_manager.cargar_imagen(str(archivo_png))
+                if img:
+                    # Guardar bajo AMBOS nombres (sprite file y display name)
+                    _IMG_BTN[nombre_sprite] = img
+                    
+                    for display_name, sprite_name in _ARMAS_DISPLAY_A_SPRITE.items():
+                        if sprite_name == nombre_sprite:
+                            _IMG_BTN[display_name] = img
+                            break
+        
+        # Cargar imagen de fondo para botones de armas
+        fondo_armas_path = pathlib.Path(__file__).parent / "images" / "Botones" / "fondo armas" / "FondoArmas.png"
+        if fondo_armas_path.exists():
+            img_fondo = imagen_manager.cargar_imagen(str(fondo_armas_path))
+            if img_fondo:
+                _IMG_BTN["fondo_armas"] = img_fondo
+                print(f"[OK] FondoArmas.png cargado correctamente")
+            else:
+                print(f"[ERROR] No se pudo cargar FondoArmas.png desde {fondo_armas_path}")
+        else:
+            print(f"[ERROR] Archivo FondoArmas.png no encontrado en {fondo_armas_path}")
+        
+        # DEBUG: Mostrar resumen de carga
+        armas_cargadas = [k for k in _IMG_BTN.keys() if any(
+            nombre in k.lower() for nombre in 
+            ["daga", "espada", "martillo", "porra", "maza", "lanza", 
+             "estoque", "cimitarra", "mano", "hoz", "hoja", "hacha"]
+        )]
+        if armas_cargadas:
+            print(f"[OK] Weapon sprites loaded: {sorted(armas_cargadas)}")
 
     def _cargar_bordes_imagen(self):
         """
@@ -5039,7 +5254,7 @@ class Vista:
             sistema(f"No se pudo aplicar borde: {e}")
 
     def _boton(self, parent, texto, comando=None, activo=True,
-               row=0, col=0, forma="rect", imagen=None):
+               row=0, col=0, forma="rect", imagen=None, imagen_fondo=None):
         """
         Fabrica un botón Canvas RESPONSIVO que se auto-dimensiona al espacio.
         Se redibuja automáticamente al cambiar tamaño de ventana/grid.
@@ -5059,6 +5274,7 @@ class Vista:
         cvs._btn_activo = activo
         cvs._btn_forma = forma
         cvs._btn_imagen = imagen
+        cvs._btn_imagen_fondo = imagen_fondo
         cvs._btn_hover = False
 
         def _dibujar():
@@ -5067,28 +5283,29 @@ class Vista:
             if w < 5 or h < 5:
                 return
             cvs.delete("all")
-            m = 3
-            # Un botón es activo SOLO si: tiene contenido válido AND estamos en combate
-            activo_visual = cvs._btn_activo and self._en_combate
-            fg = COLORES["boton_activo"] if activo_visual else COLORES["boton_inactivo"]
-            fill = COLORES["boton_hover"] if cvs._btn_hover and activo_visual else COLORES["boton_bg"]
-            pts = FORMAS_BTN.get(cvs._btn_forma)
             
-            # Dibujar forma escalada al tamaño real del canvas
-            if cvs._btn_forma == "circulo":
-                cvs.create_oval(m, m, w-m, h-m, fill=fill, outline=fg, width=1)
-            elif pts is None:  # rect
-                cvs.create_rectangle(m, m, w-m, h-m, fill=fill, outline=fg, width=1)
-            else:  # polígono
-                flat = [c for nx, ny in pts for c in (nx*w, ny*h)]
-                cvs.create_polygon(flat, fill=fill, outline=fg, width=1)
+            # Determinar color de texto según estado activo
+            fg = COLORES["boton_activo"] if cvs._btn_activo else COLORES["boton_inactivo"]
             
-            # Dibujar imagen y texto
+            # Cargar imágenes si existen
+            bg_ref = _IMG_BTN.get(cvs._btn_imagen_fondo) if cvs._btn_imagen_fondo else None
             img_ref = _IMG_BTN.get(cvs._btn_imagen) if cvs._btn_imagen else None
+            
+            # Dibujar imagen de fondo si existe
+            if bg_ref:
+                cvs.create_image(w//2, h//2, image=bg_ref, anchor="center")
+            
+            # Dibujar imagen del arma si existe
             if img_ref:
-                cvs.create_image(w//2, h//2-9, image=img_ref, anchor="center")
-                cvs.create_text(w//2, h-10, text=cvs._btn_texto, fill=fg, font=self.BTN_FONT, anchor="center")
+                if cvs._btn_texto:
+                    # Mostrar imagen encima y texto abajo
+                    cvs.create_image(w//2, h//2-9, image=img_ref, anchor="center")
+                    cvs.create_text(w//2, h-10, text=cvs._btn_texto, fill=fg, font=self.BTN_FONT, anchor="center")
+                else:
+                    # Centrar imagen completamente
+                    cvs.create_image(w//2, h//2-3, image=img_ref, anchor="center")
             else:
+                # Fallback: mostrar solo texto
                 cvs.create_text(w//2, h//2, text=cvs._btn_texto, fill=fg, font=self.BTN_FONT, anchor="center")
 
         cvs._dibujar = _dibujar
@@ -5105,8 +5322,13 @@ class Vista:
         """
         Desactiva TODOS los botones de combate cuando termina el combate.
         El HUD sigue actualizándose, pero los botones no son clickeables.
+        Restaura los sprites de armas después de salir de la vista de combate.
         """
         self._en_combate = False
+        
+        # CRÍTICO: Restaurar sprites de armas después de salir del combate
+        # En combate se mostró solo nombres (imagen=None), aquí hay que restaurar
+        self._on_armas_cambio()
         
         # Forzar redibujado de todos los botones para que se vuelvan grises
         self._forzar_redraw_botones()
@@ -5146,14 +5368,14 @@ class Vista:
         
         self._redibujar_boton(
             self._botones_stances['bloquear'],
-            "🛡 Bloquear", bl_activo, "escudo",
+            "", bl_activo, "circulo",
         )
         self._redibujar_boton(
             self._botones_stances['esquivar'],
-            "💨 Esquivar", esq_activo, "rombo",
+            "", esq_activo, "circulo",
         )
     
-    def actualizar_botones_combate(self, armas, pociones, huida_bloqueada=False, stance=None):
+    def actualizar_botones_combate(self, armas, pociones, huida_bloqueada=False, pocion_usada_turno=False, stance=None):
         """
         REEMPLAZA a mostrar_botones_combate().
         Actualiza botones estáticos sin recrearlos.
@@ -5177,11 +5399,34 @@ class Vista:
             slot_name = ['arma1', 'arma2', 'arma3'][i]
             cvs = self._botones_armas[slot_name]
             tiene = arma != "----"
-            texto = arma if tiene else "---"
             
-            self._redibujar_boton(
-                cvs, texto, tiene, "hexagono",
-            )
+            # En exploración se muestran SOLO sprites (sin texto)
+            # En combate se muestran SPRITES (conservar imagen, sin texto)
+            cvs._btn_texto = ""  # NO mostrar nombres/descripciones
+            cvs._btn_activo = tiene
+            cvs._btn_forma = "hexagono"  # Mantener forma hexagonal siempre
+            
+            # Mantener y asignar imagen del arma (no eliminar)
+            if tiene:
+                if arma in _IMG_BTN:
+                    cvs._btn_imagen = arma
+                else:
+                    # Fallback: buscar en el mapeo
+                    sprite_name = _ARMAS_DISPLAY_A_SPRITE.get(arma)
+                    if sprite_name and sprite_name in _IMG_BTN:
+                        cvs._btn_imagen = sprite_name
+                    else:
+                        lowercase_name = arma.lower()
+                        if lowercase_name in _IMG_BTN:
+                            cvs._btn_imagen = lowercase_name
+                        else:
+                            cvs._btn_imagen = None
+            else:
+                cvs._btn_imagen = None
+            
+            # Redibuja para aplicar cambio
+            if hasattr(cvs, '_dibujar'):
+                cvs._dibujar()
             
             # Re-asignar comando si cambió
             if tiene:
@@ -5206,11 +5451,11 @@ class Vista:
         self._actualizar_stances_visual()
         
         # --- Actualizar ACCIONES (fila 2) ---
-        # Poción
+        # Poción: desactivar si no hay pociones disponibles O ya se usó una en este turno
         cvs_pocion = self._botones_acciones['pocion']
-        tiene_pocion = pociones > 0
+        tiene_pocion = (pociones > 0) and not pocion_usada_turno
         self._redibujar_boton(
-            cvs_pocion, f"Poción ({pociones})", tiene_pocion, "circulo",
+            cvs_pocion, "", tiene_pocion, "circulo",
         )
         if tiene_pocion:
             cvs_pocion.bind("<Button-1>", lambda e: self._enviar_comando("p") if self._en_combate else None)
@@ -5499,6 +5744,7 @@ class Vista:
                 contenido.get("armas", []),
                 contenido.get("pociones", 0),
                 contenido.get("huida_bloqueada", False),
+                pocion_usada_turno=contenido.get("pocion_usada_turno", False),
                 stance=contenido.get("stance"),
             )
         
@@ -5616,7 +5862,18 @@ def main():
         else:
             alerta("Opción no válida. Elige 1, 2 o 3.")
 
-    personaje_global = personaje
+    personaje_global = Personaje(personaje)
+    personaje_global.activo = True  # Activar reactividad después de inicializar
+    
+    # CRÍTICO: Hacer que 'personaje' apunte al wrapper reactivo
+    # Así todas las funciones que reciben 'personaje' como parámetro modificarán el wrapper
+    # en lugar del dict original, permitiendo que los observadores detecten los cambios
+    personaje = personaje_global
+    
+    # Registrar observadores de reactitividad EN VISTA (usar root.after para ejecutar en main thread)
+    if vista_global is not None:
+        # root será accesible como vista_global.root
+        vista_global.root.after(0, vista_global._registrar_observadores_personaje)
 
     # ===== INYECCIÓN DE DEPENDENCIAS EN MÓDULO EVENTS =====
     # Después de que todas las funciones se han definido, inyectamos
@@ -5647,6 +5904,13 @@ def main():
             sistema("✓ Módulo de eventos correctamente inicializado")
         except Exception as e:
             alerta(f"Error al inyectar dependencias en eventos: {e}")
+    
+    # ===== INYECTAR CALLBACK DE UI PARA ARMAS =====
+    # Esto permite que aplicar_evento() sincronice la UI cuando se obtiene un arma
+    # El callback se encola al main thread para thread-safety
+    global _callback_ui_armas
+    if vista_global is not None:
+        _callback_ui_armas = lambda: vista_global.root.after(0, vista_global._on_armas_cambio)
 
     mostrar_stats(personaje)
     sistema("Usa el comando 'stats/stat/st' para consultar tus estadísticas en cualquier momento.")
@@ -5654,9 +5918,9 @@ def main():
 
     # Iniciar juego
     if opcion == "1":
-        celda_inicial(personaje)
+        celda_inicial(personaje_global)
     else:
-        explorar(personaje)
+        explorar(personaje_global)
    
 
 
@@ -5756,8 +6020,10 @@ def _iniciar_juego():
     lanza el game loop en un hilo daemon y arranca el mainloop de tkinter.
     El hilo del juego es daemon: si se cierra la ventana, muere solo.
     """
+    global vista_global
     root = tk.Tk()
     vista = Vista(root)
+    vista_global = vista  # Guardar referencia para que main() pueda registrar observadores
     vista.on_input = _bridge.recibir
 
     def _run_juego():

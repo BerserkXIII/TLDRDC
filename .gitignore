@@ -67,6 +67,9 @@ TLDRDC/
 .coverage
 htmlcov/
 
+# Testing Tools (UI Tester - experimental, development only)
+code/ui_tester/
+
 # Archivos temporales
 *.tmp
 *.temp
