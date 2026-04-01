@@ -2979,9 +2979,8 @@ def crear_carcelero():
     )
     
     # Transición clara hacia el combate
-    emitir("separador")
-    sistema("¡¡¡COMIENZA EL COMBATE!!!")
-    
+    narrar("La bestia de carne y metal ruge como un animal y se avalanza sobre ti, blandiendo sus ganchos.")
+    alerta("¡FORRIX, EL CARCELERO, TE ATACA!")
     enemigo = {"nombre": "Forrix, el Carcelero","vida": 30,"vida_max": 30,"daño": (4, 6),"jefe": True,"esquiva": 3,"armadura": 0,
             "habilidades": [
                 {"nombre": "Gancho de Carnicero", "tipo": "pasiva", "prob": 0.25, "condicion": "siempre", "efecto": "sangrado", "valor": 1},
@@ -4524,10 +4523,8 @@ def resolver_eventos_post_combate(personaje, enemigo):
 
 # Variables de compatibilidad para código legacy
 _IMG_BTN = {}  # Diccionario de imágenes de botones (cargadas dinámicamente)
-_RUTA_BORDE_TEXTO = None
-_RUTA_BORDE_IMAGEN = None
-_RUTA_BORDE_PARSER = None
-_RUTA_FONDO_PANEL_DERECHO = None
+# Rutas de bordes eliminadas: sistema legacy nunca implementado
+# Se usaba carga de PNG para bordes decorativos (deprecado)
 
 
 class Vista:
@@ -4551,51 +4548,9 @@ class Vista:
     Los PNG de reborde se cargan con set_border_image() cuando esten listos.
     
     ══════════════════════════════════════════════════════════════════
-    🎮 GUÍA DE AJUSTE DE BOTONES (Sistema Flexible)
-    ══════════════════════════════════════════════════════════════════
-    
-    El área de botones puede controlarse de DOS FORMAS:
-    
-    📌 MODO 1: ALTURA FIJA EN PÍXELES (BOTONES_SIZE_MODE = 'fixed_px')
-    ─────────────────────────────────────────────────────────────────
-    Use para control preciso. El área NO cambia con la ventana.
-    
-    Constantes a ajustar:
-    - BOTONES_ALTURA_PX        = 335     # Altura TOTAL del área (píxeles)
-    - BTN_FILA_ARMAS_MINSIZE   = 125    # Altura mínima fila de armas
-    - BTN_FILA_STANCES_MINSIZE = 105    # Altura mínima fila de stances
-    - BTN_FILA_ACCIONES_MINSIZE= 85     # Altura mínima fila de acciones
-    
-    Nota: Suma mínima = 315px. BOTONES_ALTURA_PX debe ser >= para dejar padding.
-    
-    Ejemplos prácticos:
-    ┌─ Para botones PEQUEÑOS ────────────────────────────────────┐
-    │ BOTONES_ALTURA_PX        = 280                             │
-    │ BTN_FILA_ARMAS_MINSIZE   = 90   # -35px                   │
-    │ BTN_FILA_STANCES_MINSIZE = 85   # -20px                   │
-    │ BTN_FILA_ACCIONES_MINSIZE= 70   # -15px                   │
-    └────────────────────────────────────────────────────────────┘
-    
-    ┌─ Para botones GRANDES ────────────────────────────────────┐
-    │ BOTONES_ALTURA_PX        = 380                             │
-    │ BTN_FILA_ARMAS_MINSIZE   = 150  # +25px                   │
-    │ BTN_FILA_STANCES_MINSIZE = 120  # +15px                   │
-    │ BTN_FILA_ACCIONES_MINSIZE= 100  # +15px                   │
-    └────────────────────────────────────────────────────────────┘
-    
-    📌 MODO 2: ALTURA AUTOMÁTICA (BOTONES_SIZE_MODE = 'auto')
-    ────────────────────────────────────────────────────────────
-    El área escala con la ventana. Ajusta solo el minsize de filas.
-    Útil para interfaces responsivas.
-    
-    Los minsize se respetan como altura MÍNIMA, el área puede crecer.
-    
-    📌 ANCHO DE BOTONES
-    ──────────────────
-    Ajusta en constantes BTN_W_*:
-    - BTN_W_ARMA   = 215   # Ancho de botones de arma
-    - BTN_W_STANCE = 180   # Ancho de botones stance
-    - BTN_W_ACCION = 145   # Ancho de botones poción/huir
+    📌 ÁREA DE BOTONES - AJUSTE DE DIMENSIONES
+    El área se controla mediante BOTONES_AREA_HEIGHT (píxeles fijos).
+    Ancho de botones: BTN_W_ARMA, BTN_W_STANCE, BTN_W_ACCION
     
     ══════════════════════════════════════════════════════════════════
     """
@@ -4658,7 +4613,7 @@ class Vista:
         self._construir_layout()
         self._configurar_tags()
         self._cargar_imgs_btns()
-        self._cargar_bordes_imagen()
+        # _cargar_bordes_imagen() eliminada: sistema legacy de bordes PNG nunca usado
         self._iniciar_polling()
 
     # ------------------------------------------------------------------
@@ -4818,8 +4773,6 @@ class Vista:
         Layout SIMPLE:
         row 0: Stats strip (altura fija ALTO_STATS, weight=0)
         row 1: Botones (altura fija BOTONES_AREA_HEIGHT, weight=0) ← NO expande
-        
-        Si _RUTA_FONDO_PANEL_DERECHO existe → Se dibuja como fondo de todo este panel
         """
         panel = self._reborde(self.root, ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_stats"],
                              row=1, column=1, padx=(3, 6), pady=(3, 6))
@@ -4892,8 +4845,7 @@ class Vista:
         - Minsize: 50px (150px total < 160px disponibles)
         - weight=0 para no sobreexpandirse
         
-        Nota: Si existe _RUTA_FONDO_PANEL_DERECHO, se dibuja DETRÁS de este panel
-        como overlay en el panel derecho completo.
+
         """
         # Crear Frame simple para elementos de botones
         self._area_botones = tk.Frame(
@@ -5126,9 +5078,7 @@ class Vista:
     # Tres grupos intercambiables segun el estado del juego.
     # ------------------------------------------------------------------
 
-    def _limpiar_botones(self):
-        for w in self._area_botones.winfo_children():
-            w.destroy()
+    # _limpiar_botones() eliminada: botones ahora son estáticos, no dinámicos
 
     def _cargar_imgs_btns(self):
         """
@@ -5204,54 +5154,9 @@ class Vista:
         if armas_cargadas:
             print(f"[OK] Weapon sprites loaded: {sorted(armas_cargadas)}")
 
-    def _cargar_bordes_imagen(self):
-        """
-        Carga las imágenes de borde para los 4 paneles principales.
-        Las rutas se definen en variables globales (_RUTA_BORDE_*).
-        Si la ruta es None, mantiene el color plano del borde actual.
-        """
-        # Panel de texto (arriba izquierda) - 1382 × 756px
-        if _RUTA_BORDE_TEXTO:
-            self._aplicar_borde_imagen(self._borde_texto, _RUTA_BORDE_TEXTO)
-        
-        # Panel de imagen (arriba derecha) - 538 × 756px
-        if _RUTA_BORDE_IMAGEN:
-            self._aplicar_borde_imagen(self._borde_imagen, _RUTA_BORDE_IMAGEN)
-        
-        # Panel de parser (abajo izquierda) - 1382 × 324px
-        if _RUTA_BORDE_PARSER:
-            self._aplicar_borde_imagen(self._borde_parser, _RUTA_BORDE_PARSER)
-        
-        # Panel derecho inferior (stats + botones) - 538 × 324px
-        if _RUTA_FONDO_PANEL_DERECHO:
-            self._cargar_fondo_panel_derecho()
-
-    def _aplicar_borde_imagen(self, frame_outer, ruta_png):
-        """
-        Helper: Reemplaza el color plano del borde (Frame.bg) por una imagen.
-        Convierte el Frame exterior en un Canvas con imagen escalada.
-        """
-        try:
-            # Obtener dimensiones del frame exterior
-            w = frame_outer.winfo_width() or 100
-            h = frame_outer.winfo_height() or 100
-            
-            # Cargar y escalar imagen
-            if PIL_DISPONIBLE:
-                img = Image.open(ruta_png)
-                img = img.resize((w, h), Image.LANCZOS)
-                foto = ImageTk.PhotoImage(img)
-            else:
-                foto = tk.PhotoImage(file=ruta_png)
-            
-            # Convertir Frame en Canvas con imagen (sustituye visualmente)
-            # Nota: Los hijos (inner frame) se posicionan encima
-            # Esto es un workaround visual; en producción se reconstruiría el widget
-            frame_outer._borde_foto = foto  # Guardar referencia
-            # Este es un placeholder - en versión completa se reemplazaría con Canvas
-            
-        except Exception as e:
-            sistema(f"No se pudo aplicar borde: {e}")
+    # ELIMINADO: _cargar_bordes_imagen() y _aplicar_borde_imagen()
+    # Sistema legacy de decoración PNG para bordes nunca fue implementado completamente.
+    # Las variables _RUTA_BORDE_* siempre fueron None (sin asignar).
 
     def _boton(self, parent, texto, comando=None, activo=True,
                row=0, col=0, forma="rect", imagen=None, imagen_fondo=None):
@@ -5471,21 +5376,7 @@ class Vista:
         if estaba_inactivo:
             self._forzar_redraw_botones()
 
-    def mostrar_botones_explorar(self, puede_guardar=True):
-        """
-        DEPRECADO: Sistema antiguo de botones dinámicos.
-        Ya no se usa. Los botones de combate son estáticos y permanentes.
-        """
-        pass
-
-
-
-    def mostrar_botones_evento(self):
-        """
-        DEPRECADO: Sistema antiguo de botones dinámicos.
-        Ya no se usa. Los botones de combate son estáticos y permanentes.
-        """
-        pass
+    # mostrar_botones_explorar() y mostrar_botones_evento() eliminadas (funciones vacías deprecadas)
 
     # ------------------------------------------------------------------
     # IMAGEN SITUACIONAL
@@ -5520,48 +5411,8 @@ class Vista:
         except Exception as e:
             sistema(f"No se pudo cargar imagen: {e}")
 
-    def _cargar_fondo_panel_derecho(self):
-        """
-        Carga la imagen de fondo del panel derecho completo (stats + botones).
-        Dimensión: 538 × 324px
-        
-        Nota: El panel derecho es un Frame, así que se crea un Canvas como overlay
-        para dibujar la imagen de fondo, manteniendo los widgets actuales encima.
-        """
-        if not _RUTA_FONDO_PANEL_DERECHO:
-            return
-        
-        try:
-            # Obtener dimensiones actuales del panel derecho
-            w = self._panel_derecho.winfo_width() or 538
-            h = self._panel_derecho.winfo_height() or 324
-            
-            # Si aún no tiene tamaño real, postponer
-            if w < 50 or h < 50:
-                self._panel_derecho.after(100, self._cargar_fondo_panel_derecho)
-                return
-            
-            # Cargar y escalar imagen
-            if PIL_DISPONIBLE:
-                img = Image.open(_RUTA_FONDO_PANEL_DERECHO)
-                img = img.resize((w, h), Image.LANCZOS)
-                foto = ImageTk.PhotoImage(img)
-            else:
-                foto = tk.PhotoImage(file=_RUTA_FONDO_PANEL_DERECHO)
-            
-            # Crear Canvas overlay que ocupe todo el panel y colocar la imagen detrás
-            # El Canvas se coloca en row=0, column=0, rowspan=2 (para ocupar stats + botones)
-            canvas_overlay = tk.Canvas(
-                self._panel_derecho, bg="transparent", highlightthickness=0,
-                height=h, width=w
-            )
-            canvas_overlay.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=0, pady=0)
-            canvas_overlay.create_image(0, 0, anchor="nw", image=foto)
-            canvas_overlay._foto_bg = foto  # Guardar referencia
-            canvas_overlay.lower()  # Enviar hacia atrás para que stats y botones estén encima
-            
-        except Exception as e:
-            sistema(f"No se pudo cargar fondo del panel derecho: {e}")
+    # ELIMINADO: _cargar_fondo_panel_derecho() - Legacy system nunca implementado.
+    # Variables _RUTA_FONDO_PANEL_DERECHO siempre fueron None.
 
     # ------------------------------------------------------------------
     # PARSER

@@ -52,12 +52,9 @@ RUTAS_IMAGENES_PANELES = {
 # RUTAS DE IMÁGENES PARA BOTONES
 # ════════════════════════════════════════════════════════════════════
 
-RUTAS_IMAGENES_BOTONES = {
-    "daga": str(_IMAGEN_ASSETS / "daga.png"),
-    "espada": str(_IMAGEN_ASSETS / "espada.png"),
-    "martillo": str(_IMAGEN_ASSETS / "martillo.png"),
-    # ... agregar más según sea necesario
-}
+# NOTA: Carga de imágenes ahora es DINÁMICA desde /code/images/Botones/
+# Las imágenes se cargan automáticamente mediante globbing de carpetas
+# Ver _cargar_imgs_btns() en TLDRDC_Prueba1.py para detalles
 
 # ════════════════════════════════════════════════════════════════════
 # CONSTANTES DE DIMENSIONES
