@@ -5027,7 +5027,6 @@ class Vista:
                 # Actualizar estado e imagen
                 cvs._btn_texto = ""  # NO mostrar nombres en los botones
                 cvs._btn_activo = tiene
-                cvs._btn_forma = "hexagono"  # Mantener forma hexagonal siempre
                 
                 if tiene:
                     # Intentar asignar imagen del arma
@@ -5139,27 +5138,13 @@ class Vista:
             img_fondo = imagen_manager.cargar_imagen(str(fondo_armas_path))
             if img_fondo:
                 _IMG_BTN["fondo_armas"] = img_fondo
-                print(f"[OK] FondoArmas.png cargado correctamente")
-            else:
-                print(f"[ERROR] No se pudo cargar FondoArmas.png desde {fondo_armas_path}")
-        else:
-            print(f"[ERROR] Archivo FondoArmas.png no encontrado en {fondo_armas_path}")
-        
-        # DEBUG: Mostrar resumen de carga
-        armas_cargadas = [k for k in _IMG_BTN.keys() if any(
-            nombre in k.lower() for nombre in 
-            ["daga", "espada", "martillo", "porra", "maza", "lanza", 
-             "estoque", "cimitarra", "mano", "hoz", "hoja", "hacha"]
-        )]
-        if armas_cargadas:
-            print(f"[OK] Weapon sprites loaded: {sorted(armas_cargadas)}")
 
     # ELIMINADO: _cargar_bordes_imagen() y _aplicar_borde_imagen()
     # Sistema legacy de decoración PNG para bordes nunca fue implementado completamente.
     # Las variables _RUTA_BORDE_* siempre fueron None (sin asignar).
 
     def _boton(self, parent, texto, comando=None, activo=True,
-               row=0, col=0, forma="rect", imagen=None, imagen_fondo=None):
+               row=0, col=0, imagen=None, imagen_fondo=None):
         """
         Fabrica un botón Canvas RESPONSIVO que se auto-dimensiona al espacio.
         Se redibuja automáticamente al cambiar tamaño de ventana/grid.
@@ -5177,10 +5162,8 @@ class Vista:
         # Almacenar estado en el canvas para redibujado dinámico
         cvs._btn_texto = texto
         cvs._btn_activo = activo
-        cvs._btn_forma = forma
         cvs._btn_imagen = imagen
         cvs._btn_imagen_fondo = imagen_fondo
-        cvs._btn_hover = False
 
         def _dibujar():
             w = cvs.winfo_width()
@@ -5215,8 +5198,6 @@ class Vista:
 
         cvs._dibujar = _dibujar
         cvs.bind("<Configure>", lambda e: _dibujar())
-        cvs.bind("<Enter>", lambda e: (setattr(cvs, '_btn_hover', True), _dibujar()))
-        cvs.bind("<Leave>", lambda e: (setattr(cvs, '_btn_hover', False), _dibujar()))
 
         if activo and comando:
             cvs.bind("<Button-1>", lambda e: comando())
@@ -5238,14 +5219,13 @@ class Vista:
         # Forzar redibujado de todos los botones para que se vuelvan grises
         self._forzar_redraw_botones()
     
-    def _redibujar_boton(self, cvs, texto, activo=True, forma="rect"):
+    def _redibujar_boton(self, cvs, texto, activo=True):
         """
         Actualiza estado de un botón y lo redibuja responsivamente.
         SIN recrear el widget, solo cambia su contenido dinámicamente.
         """
         cvs._btn_texto = texto
         cvs._btn_activo = activo
-        cvs._btn_forma = forma
         cvs.configure(cursor="hand2" if activo else "arrow")
         cvs._dibujar()
     
@@ -5273,11 +5253,11 @@ class Vista:
         
         self._redibujar_boton(
             self._botones_stances['bloquear'],
-            "", bl_activo, "circulo",
+            "", bl_activo,
         )
         self._redibujar_boton(
             self._botones_stances['esquivar'],
-            "", esq_activo, "circulo",
+            "", esq_activo,
         )
     
     def actualizar_botones_combate(self, armas, pociones, huida_bloqueada=False, pocion_usada_turno=False, stance=None):
@@ -5309,7 +5289,6 @@ class Vista:
             # En combate se muestran SPRITES (conservar imagen, sin texto)
             cvs._btn_texto = ""  # NO mostrar nombres/descripciones
             cvs._btn_activo = tiene
-            cvs._btn_forma = "hexagono"  # Mantener forma hexagonal siempre
             
             # Mantener y asignar imagen del arma (no eliminar)
             if tiene:
@@ -5360,7 +5339,7 @@ class Vista:
         cvs_pocion = self._botones_acciones['pocion']
         tiene_pocion = (pociones > 0) and not pocion_usada_turno
         self._redibujar_boton(
-            cvs_pocion, "", tiene_pocion, "circulo",
+            cvs_pocion, "", tiene_pocion,
         )
         if tiene_pocion:
             cvs_pocion.bind("<Button-1>", lambda e: self._enviar_comando("p") if self._en_combate else None)
@@ -5370,7 +5349,7 @@ class Vista:
         # Huir
         cvs_huir = self._botones_acciones['huir']
         puede_huir = not huida_bloqueada
-        self._redibujar_boton(cvs_huir, "Huir", puede_huir, "circulo")
+        self._redibujar_boton(cvs_huir, "Huir", puede_huir)
         
         # Si acábamos de entrar en combate, forzar redraw para pasar de gris a activo
         if estaba_inactivo:
