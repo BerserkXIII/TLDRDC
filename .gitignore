@@ -48,6 +48,9 @@ Thumbs.db
 *.log
 *.pot
 *.mo
+
+# Documentation (Internal/WIP)
+docs/GLOSARIO_SECRETOS.md
 __pycache__/
 local_settings.py
 

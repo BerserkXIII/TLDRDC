@@ -9,35 +9,36 @@ Este es un proyecto de aprendizaje a traves de IA, por lo que puede contener err
 
 ---
 
-## [0.2.3] - 2026-04-XX
+## [0.2.3] - 2026-04-02
 
-### 🎯 Tema: Segunda Ronda de Cleanup - Debug Code & Unused State
+### 🎯 Tema: Cleanup Definitivo + Documentación de Secretos
 
-Eliminación completa de instrucciones de debug (print statements), código de inspección de carga de armas nunca utilizado, y variables de estado de botones que no se referenciaban (forma y hover state). Limpieza proactiva de las dos rondas de refactoring consolidadas en documentación.
+Eliminación de debug code y variables sin uso. Creación de diccionario técnico exhaustivo sobre los 6 secretos desbloqueables, 7 finales alternativos, y todas las mecánicas ocultas del juego.
 
-### 🧹 Changed
-- **Debug Statements Removidos**:
-  - `[OK] FondoArmas.png cargado correctamente` (línea 5142)
-  - `[OK] Weapon sprites loaded: [...]` (línea 5157)
-  - Función de debug `armas_cargadas` usando list comprehension (~20 líneas)
+### 🧹 Code Cleanup
+- **Debug Removido**: 
+  - Prints de carga de sprites (`[OK] FondoArmas.png...`)
+  - Variables de estado no leídas (`_btn_forma`, `_btn_hover`)
+  - 5 calls a `_boton()` refactorizadas
 
-- **Unused Button State Variables Eliminadas**:
-  - `_btn_forma` parámetro removido de método `_boton()` signature
-  - `_btn_forma` assignments y passing a `_redibujar_boton()` eliminadas
-  - `_btn_hover` state variable completamente removida (nunca se leía)
-  - Event bindings (Enter/Leave) para hover que no hacían nada eliminados
-  - Todas las referencias de `forma` argumentos en calls a `_redibujar_boton()`
+- **Documentación Eliminada**:
+  - ❌ [GUIA_BOTONES.md](docs/GUIA_BOTONES.md) (709 líneas, obsoleto)
 
-- **Documentación Actualizada**:
-  - ❌ Eliminado [GUIA_BOTONES.md](docs/GUIA_BOTONES.md) - Obsoleto post-PNG migration (enseñaba formas geométricas que ya no existen)
-  - [ARQUITECTURA.md](docs/ARQUITECTURA.md) - Validada: sin referencias a sistemas removidos
-  - [LECCIONES_APRENDIDAS.md](docs/LECCIONES_APRENDIDAS.md) - Mantiene relevancia histórica
+### 📚 Documentation Added
+- **✨ [GLOSARIO_SECRETOS.md](docs/GLOSARIO_SECRETOS.md)** **(no subido a git)**
+  - 6 secretos desbloqueables completos
+  - Mecánicas: Sangre, Sombra, Brazos (con fuentes y efectos)
+  - Ruta secreta: `d-i-d-d-i-d-i-d-i-d` (Demonio Final)
+  - 7 finales con tablas, narrativa y condiciones
+  - 20+ variables de control
+  - ~600 líneas, completamente documentado
 
 ### 📊 Métricas
-- **Archivos modificados**: 1 (TLDRDC_Prueba1.py)
-- **Líneas eliminadas**: ~40+ (debug code + button state infrastructure)
-- **Líneas agregadas**: ~3
-- **Cambios de API**: 0 (cambios internos, sin impacto funcional)
+- **Funciones modificadas**: `_boton()` en TLDRDC_Prueba1.py (5 calls removidos `forma=`)
+- **Líneas de código**: ~40 eliminadas (debug + button state)
+- **Documentación creada**: 600+ líneas en nuevo GLOSARIO_SECRETOS.md
+- **Archivo eliminado**: GUIA_BOTONES.md (709 líneas obsoletas)
+- **Cambios de API**: 0 (solo refactoring interno)
 
 ### 🔗 Relacionado
 - v0.2.2: Primera ronda cleanup (PNG migration + dead code de formas geométricas)

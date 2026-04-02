@@ -4875,13 +4875,13 @@ class Vista:
         # --- FILA 0: STANCES (columnas 1, 3) ---
         cvs_bl = self._boton(
             self._area_botones, "", None,
-            activo=False, row=0, col=1, forma="circulo", imagen="bloqueo"
+            activo=False, row=0, col=1, imagen="bloqueo"
         )
         self._botones_stances['bloquear'] = cvs_bl
         
         cvs_esq = self._boton(
             self._area_botones, "", None,
-            activo=False, row=0, col=3, forma="circulo", imagen="esquiva"
+            activo=False, row=0, col=3, imagen="esquiva"
         )
         self._botones_stances['esquivar'] = cvs_esq
         
@@ -4906,20 +4906,20 @@ class Vista:
         for slot_name, col in [('arma1', 0), ('arma2', 2), ('arma3', 4)]:
             cvs = self._boton(
                 self._area_botones, "---", None,
-                activo=False, row=1, col=col, forma="hexagono", imagen=None, imagen_fondo="fondo_armas"
+                activo=False, row=1, col=col, imagen=None, imagen_fondo="fondo_armas"
             )
             self._botones_armas[slot_name] = cvs
         
         # --- FILA 2: ACCIONES (columnas 1, 3) ---
         cvs_pocion = self._boton(
             self._area_botones, "", lambda: self._enviar_comando("p"),
-            activo=False, row=2, col=1, forma="circulo", imagen="0pociones"
+            activo=False, row=2, col=1, imagen="0pociones"
         )
         self._botones_acciones['pocion'] = cvs_pocion
         
         cvs_huir = self._boton(
             self._area_botones, "Huir", lambda: self._enviar_comando("h"),
-            activo=False, row=2, col=3, forma="circulo", imagen=None
+            activo=False, row=2, col=3, imagen=None
         )
         self._botones_acciones['huir'] = cvs_huir
         
