@@ -788,8 +788,7 @@ def crear_personaje():
         "_x9f": False,
         "armas": {},  # NUEVA PARTIDA: inventario de armas vacío al inicio
     }
-    preguntar("\n¿Eras fuerte o ágil? No puedes ser fuerte y ágil al mismo tiempo..."
-              "La carne solo tolera una bendición antes de desgarrarse bajo el peso de otra. ¿Qué parte de ti ha sobrevivido?")
+    preguntar("\nLa carne solo tolera una bendición antes de desgarrarse bajo el peso de otra. ¿Qué parte de ti ha sobrevivido? (1 = muy ágil, 9 = muy fuerte)")
     while True:
         entrada = pedir_input().strip()
         if not entrada.isdigit():
@@ -4584,13 +4583,13 @@ class Vista:
 
     # --- Velocidad typewriter (ms por letra) ---
     VELOCIDAD_TYPEWRITER = {
-        "narrar":     0,
-        "dialogo":    0,   # mas lento: mas dramatico
-        "susurros":   0,   # muy lento: inquietante
-        "alerta":     0,   # instantaneo: urgencia
-        "exito":      0,
-        "sistema":    0,
-        "preguntar":  0,
+        "narrar":     18,
+        "dialogo":    28,  # mas lento: mas dramatico
+        "susurros":   45,  # muy lento: inquietante
+        "alerta":     10,  # casi instantaneo: urgencia
+        "exito":      20,
+        "sistema":     8,
+        "preguntar":  15,
     }
 
     def __init__(self, root):
