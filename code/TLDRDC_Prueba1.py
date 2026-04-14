@@ -35,10 +35,20 @@ from enum import Enum
 # INITIALIZATION: Module Paths & Dependencies
 # ==============================================================================
 
+def resource_path(relative_path):
+    """Resuelve rutas a assets tanto en desarrollo como en PyInstaller frozen."""
+    if getattr(sys, 'frozen', False):
+        base = sys._MEIPASS
+    else:
+        # En desarrollo: base es la carpeta 'code/' donde vive este script
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, relative_path)
+
 # Setup sys.path to find local modules. TLDRDC_Prueba1.py is in code/,
 # but all modules (ui_config, events, etc) are at project root.
 _proyecto_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _proyecto_root)
+if not getattr(sys, 'frozen', False):
+    sys.path.insert(0, _proyecto_root)
 
 # Load UI configuration module (colors, button shapes, image paths).
 # PIL is optional; without it, only PNG images load natively.
@@ -5086,7 +5096,7 @@ class Vista:
         muestra solo texto. Rutas relativas a assets/btns/.
         """
         import pathlib
-        base = pathlib.Path(__file__).parent / "assets" / "btns"
+        base = pathlib.Path(resource_path(os.path.join("assets", "btns")))
         nombres = [
             "daga", "espada", "martillo", "porra", "maza", "lanza",
             "estoque", "cimitarra", "Mano de Dios", "Hoz de Sangre",
@@ -5101,7 +5111,7 @@ class Vista:
                 _IMG_BTN[nombre] = img
         
         # Cargar sprites dinámicos de pociones (0-10)
-        pociones_base = pathlib.Path(__file__).parent / "images" / "Botones" / "pociones"
+        pociones_base = pathlib.Path(resource_path(os.path.join("images", "Botones", "pociones")))
         for i in range(11):
             nombre = f"{i}pociones"
             ruta = pociones_base / f"{nombre}.png"
@@ -5110,7 +5120,7 @@ class Vista:
                 _IMG_BTN[nombre] = img
         
         # Cargar sprites de stances (bloqueo y esquiva)
-        stances_base = pathlib.Path(__file__).parent / "images" / "Botones" / "stances"
+        stances_base = pathlib.Path(resource_path(os.path.join("images", "Botones", "stances")))
         for nombre in ["bloqueo", "esquiva"]:
             ruta = stances_base / f"{nombre}.png"
             img = imagen_manager.cargar_imagen(str(ruta))
@@ -5118,7 +5128,7 @@ class Vista:
                 _IMG_BTN[nombre] = img
         
         # Cargar sprites de armas dinámicamente desde carpeta
-        armas_base = pathlib.Path(__file__).parent / "images" / "Botones" / "armas"
+        armas_base = pathlib.Path(resource_path(os.path.join("images", "Botones", "armas")))
         if armas_base.exists():
             for archivo_png in armas_base.glob("*.png"):
                 nombre_sprite = archivo_png.stem
@@ -5133,7 +5143,7 @@ class Vista:
                             break
         
         # Cargar imagen de fondo para botones de armas
-        fondo_armas_path = pathlib.Path(__file__).parent / "images" / "Botones" / "fondo armas" / "FondoArmas.png"
+        fondo_armas_path = pathlib.Path(resource_path(os.path.join("images", "Botones", "fondo armas", "FondoArmas.png")))
         if fondo_armas_path.exists():
             img_fondo = imagen_manager.cargar_imagen(str(fondo_armas_path))
             if img_fondo:
