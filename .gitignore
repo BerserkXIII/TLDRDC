@@ -1,114 +1,60 @@
-# Python
+# ══════════════════════════════════════════════════════════════════════════
+# TLDRDC v1.0 - Professional .gitignore
+# ══════════════════════════════════════════════════════════════════════════
+
+# ─ Python Cache & Compiled
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
 *.egg
-PIPFILE.lock
+*.egg-info/
+.Python
 
-# Virtual Environments
+# ─ Virtual Environments
 venv/
 env/
 ENV/
 env.bak/
 venv.bak/
 
-# IDE / Editor
+# ─ Build & Distribution (PyInstaller)
+build/
+dist/
+*.spec  # PyInstaller spec files (regenerable)
+
+# ─ Debug Modules & Reports (v1.0 Development - Aislado)
+debug_modules/
+debug_reports/
+
+# ─ IDE & Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
 *.sublime-project
 *.sublime-workspace
 
-# OS
-Thumbs.db
-.DS_Store
-
-# Logs
-*.log
-*.pot
-*.mo
-
-# Documentation (Internal/WIP)
-docs/GLOSARIO_SECRETOS.md
-__pycache__/
-local_settings.py
-
-# Backups (mantener backup solo localmente)
-TLDRDC_Prueba1_backup*.py
-*_backup*.py
-*.bak
-
-# Datos de jugador (no subir saves personales)
-save/
-AppData/
-TLDRDC/
-*.save
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Testing Tools (UI Tester - experimental, development only)
-code/ui_tester/
-
-# Archivos temporales
-*.tmp
-*.temp
-
-# Base de datos
-*.db
-*.sqlite
-*.sqlite3
-
-# Variables de entorno
-.env
-.env.local
-.env.*.local
-
-# Archivos del sistema
+# ─ OS
 Thumbs.db
 .DS_Store
 ehthumbs.db
 
-# Archivos compilados adicionales
-*.pyc
-*.pyo
-dist/
-build/
-*.egg-info/
-
-# Reportes y análisis
-htmlcov/
-.coverage
+# ─ Testing
 .pytest_cache/
-.mypy_cache/
-.dmypy.json
-dmypy.json
+.coverage/
+htmlcov/
 
-# Folders temporales del proyecto
-temp/
-tmp/
-logs/
-debug_output/
+# ─ Temporary Files
+*.tmp
+*.temp
+*.bak
+
+# ─ Environment Variables
+.env
+.env.local
+.env.*.local
+
+# ─ Optional Development Tools
+local_settings.py

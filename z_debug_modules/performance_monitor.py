@@ -2,36 +2,37 @@
 Módulo de Monitoreo de Performance para TLDRDC.
 
 Sistema para medir y monitorear performance de funciones clave.
+
+NOTA: Este módulo está aislado en debug_modules/ para evitar
+generación automática de carpetas en producción (v1.0).
+Para activar en desarrollo: importar manualmente desde debug_modules.
 """
 
 import os
 import time
 from contextlib import contextmanager
 
-# Importar _log_debug con manejo de errores (funciona tanto desde raíz como desde aquí)
-try:
-    from .logging_manager import _log_debug
-except ImportError:
-    try:
-        from modules.logging_manager import _log_debug
-    except ImportError:
-        # Fallback si se importa directamente
-        def _log_debug(seccion, mensaje):
-            pass
+# Fallback para _log_debug (evitar import circular)
+def _log_debug_fallback(seccion, mensaje):
+    pass
+
+_log_debug = _log_debug_fallback
 
 # ================== CONFIGURACIÓN DE PERFORMANCE MONITORING ==================
 
-PERF_MODE = True  # Cambiar a True para activar monitoring -------------------------------------
+PERF_MODE = False  # Cambiar a True para activar monitoring
 
 PERF_STATS = {
     # Estructura: "funcion": {"llamadas": 0, "tiempo_total": 0.0, "min": float('inf'), "max": 0.0}
 }
 
-# Ruta del archivo de performance
-# DEBUG_FOLDER apunta a: Version 0.7/debug_reports/
-DEBUG_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "debug_reports")
-os.makedirs(DEBUG_FOLDER, exist_ok=True)
-PERF_FILE = os.path.join(DEBUG_FOLDER, "performance.log")
+# Ruta del archivo de performance (solo si PERF_MODE=True)
+if PERF_MODE:
+    DEBUG_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "debug_reports")
+    os.makedirs(DEBUG_FOLDER, exist_ok=True)
+    PERF_FILE = os.path.join(DEBUG_FOLDER, "performance.log")
+else:
+    PERF_FILE = None
 
 
 @contextmanager
@@ -105,11 +106,12 @@ def mostrar_estadisticas_perf():
     
     # Escribir en archivo y consola
     print(resultado)
-    try:
-        with open(PERF_FILE, "w", encoding="utf-8") as f:
-            f.write(resultado)
-    except Exception as e:
-        print(f"Error escribiendo performance.log: {e}")
+    if PERF_FILE:
+        try:
+            with open(PERF_FILE, "w", encoding="utf-8") as f:
+                f.write(resultado)
+        except Exception as e:
+            print(f"Error escribiendo performance.log: {e}")
     
     return resultado
 

@@ -3,20 +3,25 @@ Módulo de Logging para TLDRDC.
 
 Gestiona el sistema de logging no-intrusivo para debugging.
 Activar/desactivar con la variable DEBUG_MODE.
+
+NOTA: Este módulo está aislado en debug_modules/ para evitar
+generación automática de carpetas en producción (v1.0).
+Para activar en desarrollo: importar manualmente desde debug_modules.
 """
 
 import os
 
 # ================== CONFIGURACIÓN DE LOGGING ==================
 
-DEBUG_MODE = False  # Cambiar a True para activar debugging -------------------------------------
+DEBUG_MODE = False  # Cambiar a True para activar debugging
 
-# Crear carpeta para logs de debug y performance
-# DEBUG_FOLDER apunta a: Version 0.7/debug_reports/
-DEBUG_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "debug_reports")
-os.makedirs(DEBUG_FOLDER, exist_ok=True)
-
-LOG_FILE = os.path.join(DEBUG_FOLDER, "debug.log")
+# Crear carpeta para logs de debug y performance (solo si DEBUG_MODE=True)
+if DEBUG_MODE:
+    DEBUG_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "debug_reports")
+    os.makedirs(DEBUG_FOLDER, exist_ok=True)
+    LOG_FILE = os.path.join(DEBUG_FOLDER, "debug.log")
+else:
+    LOG_FILE = None
 
 
 def _log_debug(seccion, mensaje):

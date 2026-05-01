@@ -45,10 +45,10 @@ def resource_path(relative_path):
     return os.path.join(base, relative_path)
 
 # Setup sys.path to find local modules. TLDRDC_Prueba1.py is in code/,
-# but all modules (ui_config, events, etc) are at project root.
-_proyecto_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# and all modules (ui_config, events, etc) are in code/modules/.
+_code_dir = os.path.dirname(os.path.abspath(__file__))
 if not getattr(sys, 'frozen', False):
-    sys.path.insert(0, _proyecto_root)
+    sys.path.insert(0, _code_dir)
 
 # Load UI configuration module (colors, button shapes, image paths).
 # PIL is optional; without it, only PNG images load natively.
