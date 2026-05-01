@@ -24,8 +24,8 @@ dist/
 *.spec  # PyInstaller spec files (regenerable)
 
 # ─ Debug Modules & Reports (v1.0 Development - Aislado)
-debug_modules/
-debug_reports/
+z_debug_modules/
+z_debug_reports/
 
 # ─ IDE & Editor
 .vscode/
@@ -58,3 +58,4 @@ htmlcov/
 
 # ─ Optional Development Tools
 local_settings.py
+ui_tester/
