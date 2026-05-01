@@ -27,6 +27,7 @@ dist/
 z_debug_modules/
 z_debug_reports/
 debug_reports/
+0.7/
 
 # ─ Development Tools & Legacy
 ui_tester/                 # Testing/debugging UI tool (not production)
