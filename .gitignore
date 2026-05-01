@@ -26,6 +26,11 @@ dist/
 # ─ Debug Modules & Reports (v1.0 Development - Aislado)
 z_debug_modules/
 z_debug_reports/
+debug_reports/
+
+# ─ Development Tools & Legacy
+ui_tester/                 # Testing/debugging UI tool (not production)
+0.7/                       # Legacy version folder (pre-v1.0)
 
 # ─ IDE & Editor
 .vscode/
