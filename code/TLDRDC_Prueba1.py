@@ -903,7 +903,7 @@ def añadir_arma(personaje, nueva_arma):
         alerta("¡Arma desconocida!")
         return
     if len(estado["armas_jugador"]) >= 3:
-        preguntar(f"Tienes 3 armas, debes descartar una para recoger {nueva_arma}.\nArmas actuales: {list(estado["armas_jugador"].keys())}")
+        preguntar(f"Tienes 3 armas, debes descartar una para recoger {nueva_arma}.\nArmas actuales: {list(estado['armas_jugador'].keys())}")
         while True:
             preguntar("Cual quieres descartar? (cancelar: /no)")
             descartar = pedir_input().lower()
