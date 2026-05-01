@@ -903,7 +903,7 @@ def añadir_arma(personaje, nueva_arma):
         alerta("¡Arma desconocida!")
         return
     if len(estado["armas_jugador"]) >= 3:
-        preguntar(f"Tienes 3 armas, debes descartar una para recoger {nueva_arma}.\nArmas actuales: {list(estado['armas_jugador'].keys())}")
+        preguntar(f'Tienes 3 armas, debes descartar una para recoger {nueva_arma}.\nArmas actuales: {list(estado["armas_jugador"].keys())}')
         while True:
             preguntar("Cual quieres descartar? (cancelar: /no)")
             descartar = pedir_input().lower()
@@ -921,7 +921,7 @@ def añadir_arma(personaje, nueva_arma):
     estado["armas_jugador"][nombre_real] = armas_global[nombre_real].copy()
     personaje["armas"] = estado["armas_jugador"].copy()  # SYNC: Actualizar UI reactivamente
     exito(f"Has conseguido {nombre_real}.")
-    sistema(f"Armas disponibles: {list(estado["armas_jugador"].keys())}")
+    sistema(f'Armas disponibles: {list(estado["armas_jugador"].keys())}')
 
 # ================== EVENTOS Y EXPLORACIÓN ==================
 # Sistema de eventos modularizado en modules/events.py
