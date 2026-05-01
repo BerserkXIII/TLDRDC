@@ -2983,8 +2983,8 @@ def crear_carcelero():
     narrar("Forrix levanta uno de sus deformes brazos y te señala.")
     narrar("Su mano temblorosa con las uñas partidas y negras. Su voz es un rugido roto, cargado de baba y sangre:")
     dialogo(
-    f"{'¡Te vi merodear! ¡Te vi oler las puertas!\n¡Este sitio es mío… ¡¡MÍO!!\n'
-    '¡El amo dijo que nadie baja… nadie toma la llave…\n¡¡Y yo obedezco!! ¡¡¡Yo siempre obedezco!!!'.upper()}"
+        ("¡Te vi merodear! ¡Te vi oler las puertas!\n¡Este sitio es mío… ¡¡MÍO!!\n" +
+         "¡El amo dijo que nadie baja… nadie toma la llave…\n¡¡Y yo obedezco!! ¡¡¡Yo siempre obedezco!!!").upper()
     )
     
     # Transición clara hacia el combate
