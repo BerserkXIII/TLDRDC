@@ -1,6 +1,5 @@
 # ════════════════════════════════════════════════════════════════════
-# UI STRUCTURE MODULE
-# Factory para crear paneles con Canvas (para imágenes) + Frame (widgets)
+# UI STRUCTURE FACTORY
 # ════════════════════════════════════════════════════════════════════
 
 import tkinter as tk
@@ -13,16 +12,9 @@ from .ui_imagen_manager import imagen_manager
 
 class EstructuraUI:
     """
-    Factory para crear paneles UI con arquitectura multicapa:
-    
-    [outer_frame: borde decorativo]
-        └─ [canvas_fondo: muestra imagen PNG de fondo]
-            └─ [frame_contenido: contiene widgets (Text, Canvas, etc)]
-    
-    Esto permite:
-    - Fondo PNG decorativo con z-order correcto
-    - Widgets superpuestos en el Frame dentro del Canvas
-    - Redimensionamiento responsivo
+    Factory for creating layered UI panels.
+    Architecture: border frame > canvas (background) > content frame (widgets).
+    Enables responsive background images with overlaid widget content.
     """
     
     @staticmethod
@@ -35,15 +27,15 @@ class EstructuraUI:
         **grid_kwargs
     ):
         """
-        Crea un panel con 3 capas: borde > Canvas(fondo) > Frame(contenido)
+        Create a 3-layer panel: border > canvas(background) > frame(content).
         
         Args:
-            parent: tk widget padre
-            ruta_fondo: str - Ruta PNG para fondo (opcional)
-            color_borde: str - Color hex del borde (#XXXXXX)
-            color_fondo: str - Color hex del fondo si no hay PNG
-            row, column: int - Posición en grid del padre
-            **grid_kwargs: otros parámetros para grid()
+            parent: parent tk widget
+            ruta_fondo: PNG path for background (optional)
+            color_borde: hex border color
+            color_fondo: hex background color if no PNG
+            row, column: grid position in parent
+            **grid_kwargs: additional grid() params
         
         Returns:
             (frame_contenido, canvas_fondo, outer_frame)
@@ -117,7 +109,7 @@ class EstructuraUI:
         return (canvas, outer)
 
 # ════════════════════════════════════════════════════════════════════
-# INSTANCIA GLOBAL
+# GLOBAL INSTANCE
 # ════════════════════════════════════════════════════════════════════
 
 estructura_ui = EstructuraUI()

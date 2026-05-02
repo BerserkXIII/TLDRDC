@@ -1,41 +1,13 @@
-# ================== MÓDULO DE EVENTOS Y EXPLORACIÓN ==================
+# ================== EVENT & EXPLORATION SYSTEM ==================
 """
-Módulo events: Sistema de eventos del dungeon crawler TLDRDC.
-
-Contiene todas las funciones de eventos numerados (_evento_1 a _evento_20),
-el router evento_aleatorio(), constantes de control, y funciones auxiliares
-para el sistema de bolsa de eventos.
-
-DEPENDENCIAS INYECTADAS (asignadas por TLDRDC_Prueba1.py después de importar):
-  Funciones narrativas:
-    - narrar(texto): emitir texto narrativo
-    - alerta(texto): emitir advertencia
-    - preguntar(texto): emitir pregunta
-    - leer_input(prompt, personaje): leer input del jugador
-    - dialogo(texto): emitir diálogo de personaje
-    - exito(texto): emitir mensaje de recompensa
-    - sistema(texto): emitir mensaje de sistema
-    - emitir(tipo, contenido): encolar mensaje genérico
-    - susurros_aleatorios(): emitir susurros aleatorios
-  
-  Funciones de combate:
-    - combate(personaje, enemigo): iniciar combate
-    - enemigo_aleatorio(nombre_opt): generar enemigo aleatorio
-    - crear_carcelero(): crear enemigo jefe
-  
-  Funciones de procesamiento:
-    - aplicar_evento(evento_dict, personaje): aplicar resultados de evento
-  
-  Variables globales:
-    - estado: dict global de estado del juego
-    - armas_global: dict de definiciones de armas
+Procedurallygenerated encounters (_evento_1 to _evento_20), event router, and bag management.
+Dependencies injected by TLDRDC_Prueba1.py after import (avoids circular imports).
 """
 
 import random
 
-# ================== INYECCIÓN DE DEPENDENCIAS ==================
-# Todas estas funciones/variables son asignadas por TLDRDC_Prueba1.py
-# al importar este módulo, para evitar circular imports.
+# ================== DEPENDENCY INJECTION ==================
+# Functions/variables assigned by TLDRDC_Prueba1.py to avoid circular imports
 
 narrar = None
 alerta = None
@@ -55,31 +27,31 @@ aplicar_evento = None
 estado = None
 armas_global = None
 
-# ================== BOLSA DE EVENTOS (AUXILIAR) ==================
+# ================== EVENT BAG (PROCEDURAL GENERATION) ==================
 
 def rellenar_bolsa_eventos():
-    """Rellena la bolsa con todos los eventos disponibles"""
+    """Refill all available events into the bag."""
     estado["bolsa_eventos"] = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
-    random.shuffle(estado["bolsa_eventos"])  # Mezclamos para mayor aleatoriedad
+    random.shuffle(estado["bolsa_eventos"])
 
 def rellenar_bolsa_exploracion():
-    """Rellena la bolsa con todos los textos de exploración disponibles"""
+    """Refill all available exploration texts into the bag."""
     estado["bolsa_exploracion"] = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-    random.shuffle(estado["bolsa_exploracion"])  # Mezclamos para mayor aleatoriedad
+    random.shuffle(estado["bolsa_exploracion"])
 
 def obtener_evento_de_bolsa():
-    """Obtiene un evento de la bolsa, rellenándola si está vacía"""
-    if not estado["bolsa_eventos"]:  # Si está vacía
+    """Get an event from the bag, refilling if empty."""
+    if not estado["bolsa_eventos"]:
         rellenar_bolsa_eventos()
-    return estado["bolsa_eventos"].pop()  # Sacamos el último elemento
+    return estado["bolsa_eventos"].pop()
 
 def obtener_texto_exploracion_de_bolsa():
-    """Obtiene un texto de exploración de la bolsa, rellenándola si está vacía"""
-    if not estado["bolsa_exploracion"]:  # Si está vacía
+    """Get an exploration text from the bag, refilling if empty."""
+    if not estado["bolsa_exploracion"]:
         rellenar_bolsa_exploracion()
-    return estado["bolsa_exploracion"].pop()  # Sacamos el último elemento
+    return estado["bolsa_exploracion"].pop()
 
-# ================== EVENTOS Y EXPLORACIÓN ==================
+# ================== PROCEDURAL ENCOUNTERS (20 Events) ==================
 
 eventos_jefe = 13
 
@@ -136,7 +108,7 @@ def _evento_1(personaje):
 def _evento_2(personaje):
     while True:
         narrar("Un líquido cálido empapa tu bota. Pisas sin querer un charco ancho y oscuro.")
-        narrar("El hedor te golpea de frente: hierro viejo, carne podrida, algo que estuvo vivo hace muy poco, o hace muchisimo...")
+        narrar("El hedor te golpea de frente: hierro viejo, carne podrida, algo que estuvo vivo hace muy poco, o hace muchísimo...")
         narrar("El asco te revuelve el estómago. Respiras por la boca, pero el sabor es casi peor.")
         narrar("El pasillo delante está en silencio. Demasiado silencio.")
         narrar("Alguien, o algo, ha estado aquí. Y no hace mucho.")
@@ -229,7 +201,7 @@ def _evento_4(personaje):
                     if personaje["destreza"] <= 3:
                         narrar("Te abalanzas con rapidez. Agarras su maltrecha cabeza y la estampas contra la pared.")
                         alerta("No logras matarlo a la primera a pesar de la brecha en su cabeza, imaginas que por su resistencia al dolor.")
-                        narrar("El maniaco lucha por su vida y en el forcejeo te clava sus uñas y apendices de hueso.")
+                        narrar("El maniaco lucha por su vida y en el forcejeo te clava sus uñas y apéndices de hueso.")
                         narrar("Consigues apartarlo, desenvainar y atravesarle el pecho.")
                         narrar("Te ha hecho una buena herida, y el ruido seguro que atraerá a otros, así que decides marcharte.")
                         return {"vida": -1}
@@ -246,7 +218,7 @@ def _evento_4(personaje):
                             return {"pociones": 2}
                         else:
                             narrar("Te mueves como una sombra: agarras su maltrecho cuello y lo partes.")
-                            narrar("El perturbado cae sin saber que lo ha matado. Resbuscas por las cajas, y das con una hoja curva y afilada.")
+                            narrar("El perturbado cae sin saber que lo ha matado. Rebuscas por las cajas, y das con una hoja curva y afilada.")
                             narrar("Entre los restos descubres una cimitarra.")
                             return {"armas": {"cimitarra": {}}}
                 elif modo == "f":
@@ -321,7 +293,7 @@ def _evento_5(personaje):
                     narrar("Guardas la poción a duras penas y te marchas.")
                     return {"pociones": 1, "vida": -1}
                 else:
-                    narrar("Te has hecho un buen corte, asi que debe haber un arma por aqui...")
+                    narrar("Te has hecho un buen corte, así que debe haber un arma por aquí...")
                     narrar("Una hoja curva, sólida, con un filo decente. No es el mejor momento para valorarla.")
                     narrar("La agarras y te incorporas. Ya habrá tiempo de limpiarla.")
                     return {"armas": {"cimitarra": {}}, "vida": -1}
@@ -537,7 +509,7 @@ def _evento_9(personaje):
         narrar("La sala tiene una sola antorcha, casi consumida, que tiembla sin corriente alguna que la mueva.")
         narrar("En el centro, un cadáver atravesado por una lanza que va de lado a lado del torso, los pies sin tocar el suelo.")
         narrar("El cuerpo parece intacto, no hay signos de lucha. Alguien lo puso ahí con cuidado. Con ceremonia.")
-        narrar("Puedes ver todas las percenencias todavia en el sacrificio.")
+        narrar("Puedes ver todas las pertenencias todavia en el sacrificio.")
         preguntar("¿Rebuscas en el cadáver? (s/n)")
         resp = leer_input("> ", personaje)
         if resp in ["s", "si"]:

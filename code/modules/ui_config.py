@@ -1,6 +1,5 @@
 # ════════════════════════════════════════════════════════════════════
-# UI CONFIGURATION MODULE
-# Centraliza toda la configuración visual: colores, rutas, dimensiones
+# UI CONFIGURATION
 # ════════════════════════════════════════════════════════════════════
 
 import os
@@ -11,34 +10,34 @@ _BASE_DIR = Path(__file__).parent
 _IMAGEN_ASSETS = _BASE_DIR / "imagenes" / "pruebas"
 
 # ════════════════════════════════════════════════════════════════════
-# PALETA DE COLORES GÓTICA
+# GOTHIC COLOR PALETTE
 # ════════════════════════════════════════════════════════════════════
 
 COLORES = {
-    "fondo":           "#0a0a0a",      # Fondo principal
-    "fondo_panel":     "#0e0e0e",      # Fondo de paneles
-    "borde":           "#3a1a1a",      # Borde decorativo
-    "narrar":          "#b0b0b0",      # Narrativa normal
-    "alerta":          "#cc2222",      # Alertas/errores
-    "exito":           "#ccaa00",      # Éxitos/logros
-    "sistema":         "#22aacc",      # Mensajes del sistema
-    "dialogo":         "#ffffff",      # Diálogos de NPCs
-    "susurros":        "#661111",      # Susurros oscuros
-    "preguntar":       "#dddddd",      # Preguntas/turnos
-    "titulo":          "#cc2222",      # Títulos
-    "separador":       "#333333",      # Líneas separadoras
-    "boton_activo":    "#cc4444",      # Botones disponibles
-    "boton_inactivo":  "#333333",      # Botones bloqueados
-    "stats_fg":        "#999999",      # Texto stats
-    "stats_vida":      "#cc2222",      # Color vida
-    "parser_bg":       "#080808",      # Fondo parser
-    "parser_fg":       "#cccccc",      # Texto parser
-    "parser_cursor":   "#cc2222",      # Cursor parser
+    "fondo":           "#0a0a0a",      # Main background
+    "fondo_panel":     "#0e0e0e",      # Panel background
+    "borde":           "#3a1a1a",      # Decorative border
+    "narrar":          "#b0b0b0",      # Narrative text
+    "alerta":          "#cc2222",      # Alerts/errors
+    "exito":           "#ccaa00",      # Successes/rewards
+    "sistema":         "#22aacc",      # System messages
+    "dialogo":         "#ffffff",      # NPC dialogue
+    "susurros":        "#661111",      # Dark whispers
+    "preguntar":       "#dddddd",      # Prompts/turns
+    "titulo":          "#cc2222",      # Titles
+    "separador":       "#333333",      # Dividers
+    "boton_activo":    "#cc4444",      # Active buttons
+    "boton_inactivo":  "#333333",      # Inactive buttons
+    "stats_fg":        "#999999",      # Stats text
+    "stats_vida":      "#cc2222",      # Life color
+    "parser_bg":       "#080808",      # Parser background
+    "parser_fg":       "#cccccc",      # Parser text
+    "parser_cursor":   "#cc2222",      # Parser cursor
 }
 
 
 # ════════════════════════════════════════════════════════════════════
-# RUTAS DE IMÁGENES PARA PANELES
+# PANEL IMAGE PATHS
 # ════════════════════════════════════════════════════════════════════
 
 RUTAS_IMAGENES_PANELES = {
@@ -49,21 +48,20 @@ RUTAS_IMAGENES_PANELES = {
 }
 
 # ════════════════════════════════════════════════════════════════════
-# RUTAS DE IMÁGENES PARA BOTONES
+# BUTTON IMAGE PATHS
 # ════════════════════════════════════════════════════════════════════
 
-# NOTA: Carga de imágenes ahora es DINÁMICA desde /code/images/Botones/
-# Las imágenes se cargan automáticamente mediante globbing de carpetas
-# Ver _cargar_imgs_btns() en TLDRDC_Prueba1.py para detalles
+# Note: Images now load dynamically from /code/images/Botones/.
+# See _cargar_imgs_btns() in TLDRDC_Prueba1.py.
 
 # ════════════════════════════════════════════════════════════════════
-# CONSTANTES DE DIMENSIONES
+# DIMENSIONS
 # ════════════════════════════════════════════════════════════════════
 
-PESO_COL_IZQ = 72      # Porcentaje ancho panel izquierdo
-PESO_COL_DER = 28      # Porcentaje ancho panel derecho
-PESO_ALTO_ARRIBA = 70  # Porcentaje alto paneles arriba
-PESO_ALTO_ABAJO = 30   # Porcentaje alto paneles abajo
+PESO_COL_IZQ = 72      # Left panel width %
+PESO_COL_DER = 28      # Right panel width %
+PESO_ALTO_ARRIBA = 70  # Top panel height %
+PESO_ALTO_ABAJO = 30   # Bottom panel height %
 
 ALTO_STATS = 69        # Altura franja stats
 BOTONES_AREA_HEIGHT = 160  # Altura área botones
@@ -75,7 +73,7 @@ ANCHO_PARSER = 100
 ALTO_PARSER = 15
 
 # ════════════════════════════════════════════════════════════════════
-# FUENTES
+# FONTS
 # ════════════════════════════════════════════════════════════════════
 
 FUENTES = {
@@ -86,7 +84,7 @@ FUENTES = {
 }
 
 # ════════════════════════════════════════════════════════════════════
-# VELOCIDADES DE ANIMACIÓN
+# ANIMATION SPEEDS
 # ════════════════════════════════════════════════════════════════════
 
-VELOCIDAD_TYPEWRITER = 30  # ms entre caracteres al escribir
+VELOCIDAD_TYPEWRITER = 30  # ms between chars (typewriter effect)

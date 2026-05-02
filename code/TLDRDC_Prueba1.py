@@ -36,22 +36,20 @@ from enum import Enum
 # ==============================================================================
 
 def resource_path(relative_path):
-    """Resuelve rutas a assets tanto en desarrollo como en PyInstaller frozen."""
+    """Resolve asset paths for both development and PyInstaller frozen exe."""
     if getattr(sys, 'frozen', False):
         base = sys._MEIPASS
     else:
-        # En desarrollo: base es la carpeta 'code/' donde vive este script
+        # Development: resolve relative to this script's directory
         base = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base, relative_path)
 
-# Setup sys.path to find local modules. TLDRDC_Prueba1.py is in code/,
-# and all modules (ui_config, events, etc) are in code/modules/.
+# Setup sys.path for local module discovery.
 _code_dir = os.path.dirname(os.path.abspath(__file__))
 if not getattr(sys, 'frozen', False):
     sys.path.insert(0, _code_dir)
 
-# Load UI configuration module (colors, button shapes, image paths).
-# PIL is optional; without it, only PNG images load natively.
+# Load UI modules: colors, image manager, layout factory, reactive object.
 try:
     from modules.ui_config import COLORES, RUTAS_IMAGENES_PANELES
     from modules.ui_imagen_manager import imagen_manager
@@ -62,14 +60,14 @@ except ImportError as e:
     print(f"Error: UI modules not found: {e}")
     MODULOS_DISPONIBLES = False
 
-# PIL enables JPEG and RGBA image support. PNG always available via Tkinter.
+# Import PIL for enhanced image support (JPEG, RGBA, resizing).
 try:
     from PIL import Image, ImageTk
     PIL_DISPONIBLE = True
 except ImportError:
     PIL_DISPONIBLE = False
 
-# Event system with 20 procedurally generated encounter events.
+# Import event system (20 procedurally generated encounters).
 try:
     import modules.events as events_module
     from modules.events import (
@@ -137,28 +135,12 @@ class Accion(Enum):
     STANCE_ESQUIVAR = "esquivar"
 
 # ==============================================================================
-# Thread Synchronization: Game <-> UI Bridge
+# THREAD SYNCHRONIZATION: Game <-> UI Bridge
 # ==============================================================================
-# Architecture: Game logic runs in a worker thread and blocks on pedir_input().
-# The main thread runs Tkinter event loop (never blocks). _Bridge enables
-# synchronized communication between threads via threading.Event().
-#
-# Flow: Game calls pedir_input() -> blocks until Vista calls _bridge.recibir()
-#       -> Vista UI remains responsive to mouse/keyboard in main thread.
-#
-# See docs/ARQUITECTURA.md#Doble Hilo for detailed threading architecture.
+# Worker thread blocks on pedir_input() → Main thread runs Tkinter (non-blocking)
 
 class _Bridge:
-    """
-    Synchronization channel between game logic thread and Tkinter main thread.
-    
-    Uses threading.Event to block worker thread until UI delivers user input.
-    Tkinter event loop remains free to handle user interactions.
-    
-    Attributes:
-        _evento (threading.Event): Cross-thread signaling mechanism
-        _valor (str): Input text passed from Vista to game logic
-    """
+    """Cross-thread input synchronization via threading.Event."""
 
     def __init__(self):
         """Initialize synchronization primitives."""
@@ -166,30 +148,13 @@ class _Bridge:
         self._valor = ""
 
     def esperar(self):
-        """
-        Block calling thread until input is available.
-        
-        Worker thread calls this during normal game flow. Blocks until
-        Vista calls recibir(). Clears event after unblocking to reset
-        for next input cycle.
-        
-        Returns:
-            str: Input text from Vista (user command/response)
-        """
+        """Block worker thread until Vista delivers input; return it."""
         self._evento.wait()
         self._evento.clear()
         return self._valor
 
     def recibir(self, texto):
-        """
-        Unblock waiting thread and deliver input.
-        
-        Called by Vista when user submits text via UI. Sets event flag to
-        wake worker thread, which continues from esperar() call.
-        
-        Args:
-            texto (str): User input to pass to game logic
-        """
+        """Signal worker thread with user input."""
         self._valor = texto
         self._evento.set()
 
@@ -198,26 +163,7 @@ _bridge = _Bridge()
 
 
 def pedir_input(prompt=""):
-    """
-    Request player input without blocking UI thread.
-    
-    Replaces builtin input() throughout game logic. Shows prompt in main
-    text area, enables input field, then blocks calling (worker) thread
-    until Vista delivers response. Tkinter event loop remains active.
-    
-    Args:
-        prompt (str, optional): Text to display before input field. Defaults to "".
-    
-    Returns:
-        str: Player's input from Vista
-    
-    Implementation:
-        1. Emit prompt to text panel if provided
-        2. Signal Vista to enable input field
-        3. Block worker thread at _bridge.esperar()
-        4. Vista detects Enter, calls _bridge.recibir(text)
-        5. Worker thread unblocks and returns input
-    """
+    """Request player input (non-blocking). Emits prompt and waits for Vista."""
     if prompt:
         emitir("preguntar", prompt)
     emitir("habilitar_input")
@@ -225,69 +171,26 @@ def pedir_input(prompt=""):
 
 
 # ==============================================================================
-# Message Queue: Model -> View Communication
+# MESSAGE QUEUE: Model -> View Communication
 # ==============================================================================
-# Game logic never prints directly. Instead, it emits messages to cola_mensajes
-# which Vista consumes and renders according to message type. This decouples
-# game logic from presentation layer.
-#
-# Message Types:
-#     "narrar"           : Narrative text in italic gray
-#     "alerta"           : Danger/warning in red
-#     "exito"            : Achievement/reward in yellow
-#     "sistema"          : System events (save/load) in cyan
-#     "titulo"           : Section separator with title
-#     "separador"        : Horizontal rule
-#     "preguntar"        : Player prompt (command request)
-#     "dialogo"          : NPC dialogue in white
-#     "susurros"         : Whispers in dark red, centered
-#     "panel"            : Framed box (endings, intro)
-#     "stats"            : Character statistics dict
-#     "hud_combate"      : Combat stats (player/enemy HP)
-#     "opciones_combate" : Available weapons and potions
-#     "menu_principal"   : Game title screen signal
-#     "titulo_juego"     : Game title display
-#
-# Usage: emitir("tipo", contenido) deposits message. Vista retrieves and renders.
+# All game output flows through emitir() to decouple logic from UI presentation.
 
 cola_mensajes = deque()
 
 
 def emitir(tipo, contenido=""):
-    """
-    Deposit message for Vista to consume and render.
-    
-    All game output flows through this function. Enables decoupling of
-    game logic from UI presentation layer. Thread-safe via deque.
-    
-    Args:
-        tipo (str): Message type (see queue documentation above)
-        contenido (str or dict, optional): Message payload. Defaults to "".
-    """
+    """Queue message for Vista to render."""
     cola_mensajes.append({"tipo": tipo, "contenido": contenido})
 
 
 def panel(texto, titulo="", estilo="red"):
-    """
-    Emit a framed message panel (shorthand).
-    
-    Convenience wrapper for common panel emissions (game endings, intro, etc).
-    
-    Args:
-        texto (str): Main panel content
-        titulo (str, optional): Panel title. Defaults to "".
-        estilo (str, optional): Panel style/color. Defaults to "red".
-    """
+    """Emit a framed panel message."""
     emitir("panel", {"texto": texto, "titulo": titulo, "estilo": estilo})
 
 
 # ==============================================================================
 # Global State: Single Mutable Container for Session Data
 # ==============================================================================
-# All session-mutable variables collected in one dict. No function requires
-# 'global' keyword to mutate estado fields. Simplifies debugging and state
-# inspection. Initialize with sensible defaults.
-
 estado: dict = {
     "armas_jugador": {},
     "ruta_jugador": [],
@@ -307,7 +210,7 @@ estado: dict = {
 # to enable file-based logs without impacting game UI. Logs written to
 # adjacent debug folder (/0.7/Documentos Debug Performance).
 
-DEBUG_MODE = False  # Set True to enable debug logging
+DEBUG_MODE = False  # Set to True for file-based logging
 
 DEBUG_FOLDER = os.path.expanduser(
     "~/Desktop/codigos/TLDRDC/0.7/Documentos Debug Performance"
@@ -319,17 +222,7 @@ PERF_FILE = os.path.join(DEBUG_FOLDER, "performance.log")
 
 
 def _log_debug(seccion, mensaje):
-    """
-    Write debug message to log file (if enabled).
-    
-    Non-intrusive logging: writes to disk, never interferes with real-time
-    game UI. Useful for tracing condition evaluation, damage calculations,
-    effect application, etc. Disable DEBUG_MODE for production.
-    
-    Args:
-        seccion (str): Log category (e.g., "CONDITION", "DAMAGE", "EFFECT")
-        mensaje (str): Message to log
-    """
+    """Write debug message to log file if DEBUG_MODE enabled."""
     if not DEBUG_MODE:
         return
 
@@ -354,24 +247,9 @@ def _log_debug(seccion, mensaje):
 # from propagating through game logic.
 
 def validar_habilidad(habilidad):
-    """
-    Validate ability structure and values for consistency.
+    """Validate ability structure and values.
     
-    Checks type safety and range constraints. Called during enemy spawning,
-    ability loading, stat modification, etc.
-    
-    Args:
-        habilidad (dict): Ability object to validate
-    
-    Returns:
-        tuple: (is_valid: bool, error_message: str)
-            Returns (True, "") if valid. Returns (False, message) on error.
-    
-    Validates:
-        - Required fields: nombre, tipo, prob
-        - Type constraints: nombre is non-empty str, prob ∈ [0,1], etc
-        - Conditional fields: if condicion="vida_baja" → threshold ∈ [0,1]
-        - Effect types: efecto must be valid EfectoHabilidad enum
+    Returns (is_valid: bool, error_message: str).
     """
     if not isinstance(habilidad, dict):
         return False, "Ability must be dict"
@@ -420,23 +298,9 @@ def validar_habilidad(habilidad):
 
 
 def validar_enemigo(enemigo):
-    """
-    Validate enemy stat consistency.
+    """Validate enemy stat consistency.
     
-    Ensures enemy objects have valid numeric ranges and required fields.
-    Called during NPC initialization, save/load, and combat state setup.
-    
-    Args:
-        enemigo (dict): Enemy object to validate
-    
-    Returns:
-        tuple: (is_valid: bool, error_message: str)
-    
-    Validates:
-        - Required fields: nombre, vida, vida_max, daño, armadura, habilidades
-        - Numeric ranges: life ≥ 0, armor ≥ 0, vida ≤ vida_max
-        - Damage tuple: [min, max] where min ≥ 0 and max ≥ min
-        - Abilities: each is valid via validar_habilidad()
+    Returns (is_valid: bool, error_message: str).
     """
     if not isinstance(enemigo, dict):
         return False, "Enemy must be dict"
@@ -476,10 +340,7 @@ def validar_enemigo(enemigo):
     return True, ""
 
 def validar_personaje(personaje):
-    """
-    Valida que el personaje tenga stats válidos.
-    Retorna (es_valido, mensaje_error).
-    """
+    """Validate player character stat consistency."""
     if not isinstance(personaje, dict):
         return False, "Personaje debe ser dict"
     
@@ -506,11 +367,7 @@ def validar_personaje(personaje):
     return True, ""
 
 def _verificar_integridad_turno(personaje, enemigo):
-    """
-    Verifica estado antes de resolver un turno.
-    Retorna (es_valido, mensaje_detalle).
-    Usado internamente por turno_enemigo/turno_jugador.
-    """
+    """Verify combatants are alive before turn resolution."""
     # Ambos deben estar vivos
     if personaje["vida"] <= 0:
         return False, "Personaje KO"
@@ -529,24 +386,18 @@ def _verificar_integridad_turno(personaje, enemigo):
     return True, "OK"
 
 # ================== PERFORMANCE MONITORING (PASO 10) ==================
-# Sistema para medir y monitorear performance de funciones clave.
+# Performance monitoring system for key functions.
 import time
 from contextlib import contextmanager
 
-PERF_MODE = True  # Cambiar a True para activar monitoring
+PERF_MODE = True  # Toggle performance monitoring
 PERF_STATS = {
     # Estructura: "funcion": {"llamadas": 0, "tiempo_total": 0.0, "min": float('inf'), "max": 0.0}
 }
 
 @contextmanager
 def _medir_tiempo(seccion):
-    """
-    Context manager para medir tiempo de ejecución.
-    Uso: with _medir_tiempo("TURNO"):
-             # código a medir
-    
-    Acumula estadísticas en PERF_STATS solo si PERF_MODE=True.
-    """
+    """Measure execution time and accumulate performance statistics."""
     if not PERF_MODE:
         yield
         return
@@ -577,10 +428,7 @@ def _medir_tiempo(seccion):
             _log_debug("PERF_WARN", f"{seccion}: {duracion:.3f}s (lento)")
 
 def mostrar_estadisticas_perf():
-    """
-    Imprime estadísticas de performance acumuladas.
-    Guarda en performance.log y también muestra en consola.
-    """
+    """Display accumulated performance statistics."""
     if not PERF_STATS:
         mensaje = "Sin datos de performance."
         print(mensaje)
@@ -622,11 +470,7 @@ RUTA_SAVE = os.path.join(CARPETA_SAVE, "guardado.json")
 
 # ================== FUNCIONES DE GUARDADO/CARGA ==================
 def guardar_partida(personaje):
-    """
-    Guarda la partida en AppData\\TLDRDC\\guardado.json de forma segura.
-    Usa JSON en vez de pickle para evitar ejecución de código arbitrario
-    si el archivo fuera manipulado.
-    """
+    """Save game state safely to JSON file (avoids pickle security risks)."""
     try:
         tmp_path = os.path.join(CARPETA_SAVE, "guardado_tmp.json")
         datos = {
@@ -649,10 +493,7 @@ def guardar_partida(personaje):
 
 
 def cargar_partida():
-    """
-    Carga la partida desde AppData\\TLDRDC\\guardado.json.
-    Devuelve el personaje y restaura las variables globales.
-    """
+    """Load game state from saved file; restore global state and return player."""
     if not os.path.exists(RUTA_SAVE):
         alerta("✘ No hay partida guardada.")
         return None
@@ -734,14 +575,14 @@ ruta_secreta = ["d", "i", "d", "d", "i", "d", "i", "d", "i", "d"]
 
 
 def rellenar_bolsa_eventos():
-    """Rellena la bolsa con todos los eventos disponibles"""
+    """Refill event bag with all available encounters."""
     estado["bolsa_eventos"] = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
-    random.shuffle(estado["bolsa_eventos"])  # Mezclamos para mayor aleatoriedad
+    random.shuffle(estado["bolsa_eventos"])
 
 def rellenar_bolsa_exploracion():
-    """Rellena la bolsa con todos los textos de exploración disponibles"""
+    """Refill exploration text bag with all available texts."""
     estado["bolsa_exploracion"] = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-    random.shuffle(estado["bolsa_exploracion"])  # Mezclamos para mayor aleatoriedad
+    random.shuffle(estado["bolsa_exploracion"])
 
 def obtener_evento_de_bolsa():
     """Obtiene un evento de la bolsa, rellenándola si está vacía"""
@@ -1047,7 +888,7 @@ def _explorar_paso(personaje):
         curacion(personaje)
     narrar("\nTe adentras en la mazmorra...")
     
-    # Sistema de bolsa para textos de exploración
+    # Exploration bag system for text variety
     textos_exploracion = obtener_texto_exploracion_de_bolsa()
     
     # Verificar condición especial de Hoz de Sangre
@@ -1137,7 +978,7 @@ def _explorar_paso(personaje):
             narrar("Ves figuras en la oscuridad: no son personas. Son cosas que fueron personas una vez, hace siglos.")
             narrar("La plaga los hizo así. La plaga que durmió, que esperó, que ahora se despierta.")
             narrar("Comprendes que los demonios del templo no son criaturas sino síntomas. Manifestaciones de algo más antiguo.")
-            personaje["conocimiento_plaga"] = True  # Flag para diálogo futuro
+            personaje["conocimiento_plaga"] = True  # Flag for future dialogue
             preguntar("Izquierda o derecha? (i/d) - g para guardar")
             valor = pedir_input().strip().lower()
             separador()
@@ -1286,7 +1127,7 @@ def _explorar_paso(personaje):
             narrar("Llevas unos veinte pasos cuando el crujido cambia de tono.")
             narrar("No eres tú. Viene de delante. Y se acerca.")
             narrar("Algo se mueve a toda velocidad por el pasillo helado, levantando esquirlas a su paso.")
-            narrar("No entiendes como se puede mover asi sobre el hielo.")
+            narrar("No entiendes como se puede mover así sobre el hielo.")
             alerta("Cuando la forma toma cuerpo, ya no hay distancia entre vosotros.")
             enemigo = random.choice(["Rabioso", "Perturbado", "Maniaco Mutilado"])
             combate(personaje, enemigo_aleatorio(enemigo))
@@ -1525,7 +1366,7 @@ def _explorar_paso(personaje):
                     narrar("A pesar del dolor, tu voluntad te impulsa mas alla de tu fisico, y consigues despegar las manos del suelo.")
                     narrar("Sin saber como, y a pesar del dolor, tu cuerpo se mueve hacia adelante, hacia el otro lado del pasillo.")
                     narrar("Cuando por fin cruzas, tienes heridas por todo el cuerpo y los músculos agarrotados.")
-                    narrar("El daño es grave, pero notas todavia mas dolor en tu alma...")
+                    narrar("El daño es grave, pero notas todavía mas dolor en tu alma...")
                     aplicar_evento({"vida": -3}, personaje)
 
 
@@ -2239,7 +2080,7 @@ def _explorar_paso(personaje):
         progreso_n2 = racha(estado["ruta_jugador"], ruta_correcta_nivel2)
         progreso_s  = racha(estado["ruta_jugador"], ruta_secreta)
 
-        # Progreso del paso ANTERIOR (sin el último paso) para detectar caídas
+        # Previous step progress (without last step) to detect falls
         prev = estado["ruta_jugador"][:-1]
         prev_n2 = racha(prev, ruta_correcta_nivel2) if prev else 0
         prev_s  = racha(prev, ruta_secreta)         if prev else 0
@@ -2311,7 +2152,7 @@ def _explorar_paso(personaje):
             if personaje.get("_huyo_combate", False):
                 reiniciar_camino_por_huida(personaje)
             else:
-                # Limpiar la ruta secreta para que el combate no se retrigere
+            # Clear secret route to prevent combat re-trigger
                 estado["pasos_secretos"].clear()
             return True
 
@@ -2334,30 +2175,37 @@ def narrar(texto):
     emitir("narrar", texto)
 
 def alerta(texto):
+    """Emit warning/danger text (red)."""
     """Advertencia o peligro inminente."""
     emitir("alerta", texto)
 
 def exito(texto):
+    """Emit success/reward text (yellow)."""
     """Recompensa, objeto conseguido, logro."""
     emitir("exito", texto)
 
 def sistema(texto):
+    """Emit system message (cyan)."""
     """Mensajes del sistema: guardado, cargado, errores."""
     emitir("sistema", texto)
 
 def titulo_seccion(texto):
+    """Emit section separator with title."""
     """Separador visual con título."""
     emitir("titulo", texto)
 
 def preguntar(texto):
+    """Emit player prompt (command request)."""
     """Pregunta o prompt al jugador."""
     emitir("preguntar", texto)
 
 def separador():
+    """Emit horizontal separator line."""
     """Línea divisoria entre bloques de texto."""
     emitir("separador", "")
 
 def dialogo(texto):
+    """Emit NPC dialogue (white)."""
     """Diálogo de personaje: voz directa, destacada."""
     emitir("dialogo", texto)
 
@@ -2460,7 +2308,8 @@ def _fate_05():
     pedir_input()
     sys.exit()
 
-def _fate_01(personaje):                                            # MATAR AL AMO
+def _fate_01(personaje):
+    """Ending 1: Defeat the Master."""
     if personaje.get("_x9f"):
         return _fate_05()
     
@@ -2477,7 +2326,8 @@ def _fate_01(personaje):                                            # MATAR AL A
     pedir_input()
     sys.exit()
 # FINAL SECRETO
-def _fate_02(personaje):                                        # MATAR AMO + PODER +1
+def _fate_02(personaje):
+    """Ending 2: Defeat Master + gain power +1."""
     if personaje.get("_x9f"):
         return _fate_05()
     
@@ -2495,6 +2345,7 @@ def _fate_02(personaje):                                        # MATAR AMO + PO
     sys.exit()
 
 def _fate_03(personaje):
+    """Ending 3: Defeat Master with specific items/conditions."""
     if personaje.get("_x9f"):
         return _fate_05()
     
@@ -2512,6 +2363,7 @@ def _fate_03(personaje):
     sys.exit()
 
 def ejecutar_final_normal_por_arma(personaje):
+    """Execute appropriate ending based on current weapon."""
     if "Hoja de la Noche" in estado["armas_jugador"]:
         _fate_03(personaje)
     elif "Hoz de Sangre" in estado["armas_jugador"]:
@@ -2519,7 +2371,8 @@ def ejecutar_final_normal_por_arma(personaje):
     else:
         _fate_01(personaje)
 
-def _fate_04(personaje):                                       #   100 kills
+def _fate_04(personaje):
+    """Ending 4: 100+ kills milestone."""
     if personaje.get("_x9f"):
         return _fate_05()
     
@@ -2537,7 +2390,8 @@ def _fate_04(personaje):                                       #   100 kills
     pedir_input()
     sys.exit()
 
-def _fate_06(personaje):                                       # 66 kills + poder 1
+def _fate_06(personaje):
+    """Ending 6: 66+ kills + power 1."""
     if personaje.get("_x9f"):
         return _fate_05()
     
@@ -2780,6 +2634,7 @@ _LORE_FIBONACCI: dict = {
 
 
 def _mostrar_lore_fibonacci(combate: int) -> None:
+    """Display narrative lore message for Fibonacci milestone combats."""
     """Muestra los fragmentos de lore correspondientes al hito de combate dado."""
     fragmentos = _LORE_FIBONACCI.get(combate)
     if not fragmentos:
@@ -2795,6 +2650,7 @@ def _mostrar_lore_fibonacci(combate: int) -> None:
 
 
 def revisar_bonus_fibonacci(personaje):
+    """Check Fibonacci combat numbers for bonus power/rewards."""
     """Dispara lore narrativo en los hitos de combate de la secuencia de Fibonacci."""
     if estado["_c01"] not in _FIB_SET:
         return
@@ -2993,12 +2849,13 @@ def crear_carcelero():
     enemigo = {"nombre": "Forrix, el Carcelero","vida": 30,"vida_max": 30,"daño": (4, 6),"jefe": True,"esquiva": 3,"armadura": 0,
             "habilidades": [
                 {"nombre": "Gancho de Carnicero", "tipo": "pasiva", "prob": 0.25, "condicion": "siempre", "efecto": "sangrado", "valor": 1},
-                {"nombre": "Recuperacion Impia", "tipo": "activa", "prob": 1.0, "condicion": "vida_baja", "threshold": 0.6, "efecto": "recuperacion_impia"}
+                {"nombre": "Recuperación Impia", "tipo": "activa", "prob": 1.0, "condicion": "vida_baja", "threshold": 0.6, "efecto": "recuperacion_impia"}
             ],
             "_efectos_temporales": {}}
     return enemigo
 
 def crear_amo_mazmorra(personaje):
+    """Create Fabius, Amo de la Mazmorra (dungeon master boss, varies by progression)."""
     if "Hoz de Sangre" in estado["armas_jugador"]:
         narrar("Entras a una sala enorme, llena de utensilios de tortura, cadenas y ganchos.")
         narrar("Una figura retorcida te observa tras una mesa de cirugía, con una máscara de hierro.")
@@ -3017,14 +2874,14 @@ def crear_amo_mazmorra(personaje):
                 "_efectos_temporales": {}}
     elif "Hoja de la Noche" in estado["armas_jugador"] and (personaje["_pw"]) == 1:
         narrar("Entras a una sala enorme. Esta llena de utensilios de tortura, cadenas y ganchos.")
-        narrar("Una figura retorcida te observa tras una mesa de cirugia, con una máscara de hierro.")
-        dialogo("'Vaya… uno de mis juguetes ha escapado... pero que llevas ahi?'")
+        narrar("Una figura retorcida te observa tras una mesa de cirugía, con una máscara de hierro.")
+        dialogo("'Vaya… uno de mis juguetes ha escapado... pero que llevas ahí?'")
         narrar("El Amo de la Mazmorra te mira con una mirada desagradable.")
         dialogo("'¡Como has conseguido esa hoja!?'")
         narrar("Al mirarte fijamente, ves como se el Amo de la mazmorra se sorprende")
         dialogo("'No puede ser...'")
         narrar("Con una velocidad inusitada, Fabius avanza frente a ti y se para en medio de la sala.")
-        narrar("Puedes ver su horrible figura, totalmente retorcida y contrahecha. Notas su poder, pero tambien sus deformidades y afecciones.")
+        narrar("Puedes ver su horrible figura, totalmente retorcida y contrahecha. Notas su poder, pero también sus deformidades y afecciones.")
         narrar("Te preparas para enfrentarlo, pero Fabius de repente se postra ante ti y comienza a reverenciarte con adoracion.")
         dialogo("'¡OH ALABADO! Khar-dum! Khar-dum! Sanguor Rex!'")
         narrar("El Amo de la Mazmorra comienza a rezarte, mientras se da cabezazos con fuerza con cada salmo.")
@@ -3039,8 +2896,8 @@ def crear_amo_mazmorra(personaje):
                 "_efectos_temporales": {}}
     elif "Hoja de la Noche" in estado["armas_jugador"]:
         narrar("Entras a una sala enorme. Esta llena de utensilios de tortura, cadenas y ganchos.")
-        narrar("Una figura retorcida te observa tras una mesa de cirujia, con una máscara de hierro.")
-        dialogo("'Vaya… uno de mis juguetes ha escapado... pero que llevas ahi?'")
+        narrar("Una figura retorcida te observa tras una mesa de cirugía, con una máscara de hierro.")
+        dialogo("'Vaya… uno de mis juguetes ha escapado... pero que llevas ahí?'")
         narrar("El Amo de la Mazmorra te mira con una mirada desagradable.")
         dialogo("'¡Como has conseguido esa hoja!?'")
         dialogo("'Da igual, conozco cada secreto de esta mazmorra, y tu no! No eres nadie a mi lado!'")
@@ -3074,6 +2931,7 @@ def crear_amo_mazmorra(personaje):
                 "_efectos_temporales": {}}
 
 def crear_sombra_sangrienta():
+    """Create Sanakht, la Sombra Sangrienta (blood shadow boss)."""
     narrar("Esta vez la sombra te atrapa a ti y te arrastra a un mar de sangre sin orillas.")
     susurros_aleatorios()
     alerta("Sientes un terror primitivo, pataleas en vacío y cada movimiento te hunde más.")
@@ -3096,6 +2954,7 @@ def crear_sombra_sangrienta():
             "_efectos_temporales": {}}
 
 def crear_demonio_final():
+    """Create Ka-Banda, Demonio Sombrio (final demon boss)."""
     narrar("La oscuridad se comprime y luego revienta en una marea de ceniza y sangre.")
     narrar("Desde el fondo del pasillo emerge Bel'akhor, Devorador de Almas.")
     narrar("Su silueta recuerda a un toro deforme erguido sobre dos patas, con una musculatura imposible y antinatural.")
@@ -3123,6 +2982,7 @@ def crear_demonio_final():
     }
 
 def crear_mano_demoniaca():
+    """Create Mano Demoniaca (demonic hand enemy)."""
     narrar("El aire se vuelve espeso y un olor agrio a sangre vieja te golpea la cara.")
     narrar("Desde la penumbra aparece el enano deforme, arrastrándose entre risas ahogadas por la rabia.")
     dialogo("'¡TE DIJE QUE ME LOS TRAJERAS! ¡AHORA VERAS LO QUE HE HECHO CONTIGO!'")
@@ -3134,7 +2994,7 @@ def crear_mano_demoniaca():
     dialogo("'¡MI OBRA! ¡MI VENGANZA!' grita mientras la criatura se lanza a por ti.")
     return {"nombre": "Mano Demoniaca", "vida": 30, "vida_max": 30, "daño": (8,9), "jefe": True, "esquiva": 8, "armadura": 0,
             "habilidades": [
-                {"nombre": "Regeneracion grotesca", "tipo": "pasiva", "prob": 0.30, "condicion": "siempre", "efecto": "heal", "valor": 3},
+                {"nombre": "Regeneración grotesca", "tipo": "pasiva", "prob": 0.30, "condicion": "siempre", "efecto": "heal", "valor": 3},
                 {"nombre": "Golpes furiosos", "tipo": "activa", "prob": 0.5, "condicion": "siempre", "efecto": "golpes_furiosos"}
             ],
             "_efectos_temporales": {}}
@@ -3160,7 +3020,7 @@ def crear_demonio_sombrio():
     narrar("Pero la Hoz en tu mano y tus instintos te preparan para la batalla.")
     return {"nombre": "Ka-Banda, Demonio Sombrio", "vida": 50, "vida_max": 50, "daño": (6,7), "jefe": True, "esquiva": 12, "armadura": 0,
             "habilidades": [
-                {"nombre": "Hoja sombria", "tipo": "pasiva", "prob": 0.15, "condicion": "siempre", "efecto": "stun", "valor": 1},
+                {"nombre": "Hoja sombría", "tipo": "pasiva", "prob": 0.15, "condicion": "siempre", "efecto": "stun", "valor": 1},
                 {"nombre": "Frensi demoniaco", "tipo": "activa", "prob": 1.0, "condicion": "vida_baja", "threshold": 0.5, "efecto": "frensi_demoniaco"}
             ],
             "_efectos_temporales": {}}
@@ -3181,6 +3041,7 @@ def decrementar_efectos_temporales(enemigo):
         del efectos[efecto]
 
 def decrementar_efectos_temporales_jugador(personaje):
+    """Decrement temporary effect durations on player each turn."""
     """Decrementa los efectos temporales del jugador (reducción de armadura, etc)."""
     if "_efectos_temporales" not in personaje:
         return
@@ -3200,6 +3061,7 @@ def decrementar_efectos_temporales_jugador(personaje):
         del efectos[efecto]
 
 def _normalizar_enum(valor):
+    """Convert Enum instances to string values for consistency."""
     """Convierte Enum a .value si es necesario, preserva strings."""
     if isinstance(valor, Enum):
         return valor.value
@@ -3207,6 +3069,7 @@ def _normalizar_enum(valor):
 
 
 def evaluar_condicion_habilidad(enemigo, condicion, prob=1.0, threshold=0.5):
+    """Evaluate if enemy ability should trigger based on condition."""
     """
     Centraliza la evaluación de condiciones para habilidades.
     Compatible con strings y Enums.Condicion.
@@ -3237,6 +3100,7 @@ def evaluar_condicion_habilidad(enemigo, condicion, prob=1.0, threshold=0.5):
     return False
 
 def aplicar_habilidades_pasivas(enemigo, personaje):
+    """Apply passive ability effects (damage modifiers, armor reductions, etc)."""
     """Aplica modificadores y efectos de habilidades pasivas al ataque. Devuelve dict con modificadores."""
     modificadores = {"daño": 0, "sangrado": 0, "stun_prob": 0, "armor_reduction": 0}
     habilidades_pasivas = [h for h in enemigo.get("habilidades", []) if _normalizar_enum(h.get("tipo")) == "pasiva"]
@@ -3303,7 +3167,7 @@ def ejecutar_habilidad_activa(enemigo, personaje):
                 return resultado
             
             elif efecto == "recuperacion_impia":
-                # Forrix: se cura 4 HP y prepara damage_boost 20%
+                # Forrix: heals 4 HP and prepares damage_boost 20%
                 enemigo["vida"] = min(enemigo.get("vida_max", enemigo["vida"]), enemigo["vida"] + 4)
                 enemigo["_damage_boost"] = 0.2
                 alerta(f"💚⚡ {enemigo['nombre']} usa {nombre_hab}: Se cura y se prepara para un golpe devastador.")
@@ -3318,7 +3182,7 @@ def ejecutar_habilidad_activa(enemigo, personaje):
                 return resultado
             
             elif efecto == "esquiva_temporal":
-                # Sanakht: reduce la precisión del jugador durante 2 turnos
+                # Sanakht: reduces player accuracy for 2 turns
                 enemigo["_efectos_temporales"]["precision_reducida"] = {"valor": 10, "turnos_restantes": 2}
                 alerta(f"👻 {enemigo['nombre']} usa {nombre_hab}: Se sumerge en las sombras, eliminándote del plano de la realidad.")
                 return resultado
@@ -3332,7 +3196,7 @@ def ejecutar_habilidad_activa(enemigo, personaje):
                 return resultado
             
             elif efecto == "frensi_demoniaco":
-                # Ka-Banda: ejecuta ataque con +25% daño + 30% damage_boost para 2 turnos
+                # Ka-Banda: attack with +25% damage + 30% boost for 2 turns
                 alerta(f"🔥 {enemigo['nombre']} usa {nombre_hab}: ¡ENTRA EN UN FRENESÍ DEMONIACO!")
                 enemigo["_damage_boost"] = 0.25  # +25% para este ataque
                 enemigo["_efectos_temporales"]["damage_boost"] = {"valor": 0.3, "turnos_restantes": 2}
@@ -3360,7 +3224,7 @@ def ejecutar_habilidad_activa(enemigo, personaje):
                 return resultado
             
             elif efecto == "inyeccion_quirurgica":
-                # Fabius: se cura 3 HP y prepara ataque potenciado
+                # Fabius: heals 3 HP and prepares powered attack
                 enemigo["vida"] = min(enemigo.get("vida_max", enemigo["vida"]), enemigo["vida"] + 3)
                 alerta(f"💚⚡ {enemigo['nombre']} usa {nombre_hab}: Se inyecta algo. Sonríe con complacencia.")
                 resultado["debe_atacar"] = True
@@ -3387,23 +3251,23 @@ def ejecutar_habilidad_activa(enemigo, personaje):
 
 # ================== COMBATE ==================
 
-# Diccionario de narrativas para habilidades específicas
+# Ability narrative templates
 NARRATIVAS_HABILIDADES = {
     # PASIVAS
     "Huesos Punzantes": "Los fragmentos filosos que sobresalen de su cuerpo te raspan, dejando heridas profundas.",
-    "Gancho de Carnicero": "El gancho oxidado rasgura tu piel. La herida arde.",
+    "Gancho de Carnicero": "El gancho oxidado rasguña tu piel. La herida arde.",
     "Colmillos de Sombra": "Los colmillos invisibles dejan rastros de sangre en el aire.",
     "Sutura de Dolor": "Las líneas de sutura brillan rojo. Sientes el dolor antes de ver la herida.",
     "Arrebato de Ira": "Un gruñido salvaje. Su cuerpo se desata, enloquecido.",
     "Rugido Infernal": "Un aullido que resuena en tus huesos. El demonio se potencia.",
-    "Regeneracion grotesca": "Los muñones milagrosamente se regeneran, humeando. La criatura se sana a sí misma.",
-    "Hoja sombria": "Algo invisible te golpear. Tu cuerpo no responde.",
+    "Regeneración grotesca": "Los muñones milagrosamente se regeneran, humeando. La criatura se sana a sí misma.",
+    "Hoja sombría": "Algo invisible te golpea. Tu cuerpo no responde.",
     # ACTIVAS
     "Ícor de Larva": "La probóscide dispara un ácido viscoso. Tu armadura se corroe.",
     "Ícor de Mosca": "Un goteo de icor negro cae sobre ti. Tu defensa se debilita.",
     "Arrebato de Locura": "Su cuerpo se tensa. Los ojos se abren anómalamente. ¡Se prepara para golpear con toda su fuerza!",
     "Golpe Brutal": "Hace una pausa. Reúne toda su furia. El siguiente ataque será devastador.",
-    "Recuperacion Impia": "Forrix invoca un poder antiguo. Sus heridas se cierran mientras habla en lengua demoniaca.",
+    "Recuperación Impia": "Forrix invoca un poder antiguo. Sus heridas se cierran mientras habla en lengua demoniaca.",
     "Inyección Quirúrgica": "Una aguja microscópica te atraviesa. El cirujano susurra un diagnóstico de muerte.",
     "Incisión Mortal": "El bisturí brilla. Esta vez, el corte es la música más bella que jamás ha oído.",
     "Acuchillamiento": "La sombra se vuelve filo. Una lluvia de cuchillas emerge de la oscuridad.",
@@ -3412,20 +3276,20 @@ NARRATIVAS_HABILIDADES = {
     "Drenaje de Almas": "Una conexión visceral entre ambos. Sientes tu esencia siendo succionada.",
     "Arrebato Apocalíptico": "Bel'akhor pronuncia palabras de ruina. Tu defensa colapsa.",
     "Golpes furiosos": "Los muñones golpean sin orden ni concierto. Es pura violencia sin control.",
-    "Frensi demoniaco": "Ka-Banda se convierte en pura furia. Ataca desde todos lados a la vez.",
+    "Frenesí demoníaco": "Ka-Banda se convierte en pura furia. Ataca desde todos lados a la vez.",
 }
 
 # Diccionario de narrativas de ataque para cada enemigo
 NARRATIVAS_ENEMIGOS = {
     "Maniaco Mutilado": [
         "El maníaco se abalanza a trompicones, babeando, intentando hundirte los dientes en el cuello.",
-        "Se lanza contra ti con sus muñones por delante, golpeando sin control con todos sus apendices.",
+        "Se lanza contra ti con sus muñones por delante, golpeando sin control con todos sus apéndices.",
         "Usa los huesos afilados que sobresalen de su torso y brazos para atacarte.",
     ],
     "Perturbado": [
         "Ríe histéricamente mientras se lanza sobre ti, con manos convertidas en garras de carne viva.",
         "Su cuerpo convulsiona violentamente, grita y se retuerce, pero no detiene su ataque.",
-        "Muerde sus brazos, arrancando trozos y escupiendotelos mientras avanza.",
+        "Muerde sus brazos, arrancando trozos y escupiéndotelos mientras avanza.",
     ],
     "Rabioso": [
         "El rabioso se abalanza contra ti escupiendo espuma roja, con su cuerpo al límite de lo que puede aguantar.",
@@ -3439,13 +3303,13 @@ NARRATIVAS_ENEMIGOS = {
     ],
     "Larvas de Sangre": [
         "La larva lanza su probóscide como un látigo, clavándola antes de que te apartes.",
-        "Se enrolla sobre sí misma y salta con su asqueroso aguijon por delante.",
+        "Se enrolla sobre sí misma y salta con su asqueroso aguijón por delante.",
         "Se retuerce sobre sí misma. Pareciera que baila, y de repente te dispara un chorro de icor purulento.",
     ],
     "Mosca de Sangre": [
         "Las mandíbulas serradas se cierran con un chasquido seco mientras zumba hacia ti.",
         "Bate las alas con violencia y el golpe de aire caliente y fetido te desestabiliza antes del ataque.",
-        "Gotea un líquido negro sobre ti al pasar. Sientes nauseas. El dolor llega un segundo después.",
+        "Gotea un líquido negro sobre ti al pasar. Sientes náuseas. El dolor llega un segundo después.",
     ],
     "Forrix, el Carcelero": [
         "El puño de Forrix desciende con la fuerza de una roca. Oyes los tintineos del metal en su carne antes de ver el golpe.",
@@ -3453,9 +3317,9 @@ NARRATIVAS_ENEMIGOS = {
         "Se aprieta las suturas de su cabeza con ambas manos, y entonces te embiste como un toro de metal.",
     ],
     "Fabius, Amo de la Mazmorra": [
-        ("El Cirujano tiene una fuerza increible para su tamaño. Sus puños se sienten como martillos.", "La carne siempre miente. Yo solo la obligo a decir la verdad."),
-        ("Su cuerpo viola sus propias leyes anatómicas y te golpea con apendices no humanos.", "¿Ves? El cuerpo es una hipótesis. Yo la reviso constantemente."),
-        ("Una risa suave, casi íntima, acompaña el corte. No celebra el daño. Lo cataloga.", "No te matare... te convertire en mi obra maestra!"),
+        ("El Cirujano tiene una fuerza increíble para su tamaño. Sus puños se sienten como martillos.", "La carne siempre miente. Yo solo la obligo a decir la verdad."),
+        ("Su cuerpo viola sus propias leyes anatómicas y te golpea con apéndices no humanos.", "¿Ves? El cuerpo es una hipótesis. Yo la reviso constantemente."),
+        ("Una risa suave, casi íntima, acompaña el corte. No celebra el daño. Lo cataloga.", "No te mataré... te convertiré en mi obra maestra!"),
     ],
     "Sanakht, la Sombra Sangrienta": [
         ("Las hoces se abren en un arco que la geometría no debería permitir. La sangre que dejan en el aire no te parece humana.", "susurros"),
@@ -3464,13 +3328,13 @@ NARRATIVAS_ENEMIGOS = {
     ],
     "Mano Demoniaca": [
         ("Los muñones caen sobre ti con la inercia de algo que no conoce la fatiga ni el límite. La criatura os observa:", "Más brazos... más amigos... todos juntos... todos míos..."),
-        ("La criatura barre el espacio que ocupas con indiferencia, como si no te viera. Su maestro la anima:", "Vaaayaa, no pense que esta me hubiera salido tan bien!."),
-        ("Cada 'pisada' del monstruo hace temblar la piedra. Tú intento de amigo sigue hablandote:", "Si te quedas quieto... también puedo arreglarte."),
+        ("La criatura barre el espacio que ocupas con indiferencia, como si no te viera. Su maestro la anima:", "Vaaayaa, no pensé que esta me hubiera salido tan bien!."),
+        ("Cada 'pisada' del monstruo hace temblar la piedra. Tú intento de amigo sigue hablándote:", "Si te quedas quieto... también puedo arreglarte."),
     ],
     "Ka-Banda, Demonio Sombrio": [
         ("Ka-Banda pronuncia una sílaba y el aire entre ambos explota en una fracción de segundo.", "¡¡KA'BANDA MAK NOR!! ¡KA'BANDA THRAKK UL-KHOR!!"),
         ("Ves como sus bocas se abren en cascada, desfasadas unas de otras. Sientes sus mordiscos tras los ojos.", "El demonio se lanza sobre ti con una velocidad inhumana, blandiendo sus hoces como si fueran parte de su cuerpo."),
-        ("No hay movimiento previo. Solo lo notas. El golpe simplemente ocurre, se manifiesta en ti.", "¡¡KHRON-ETH, KHRON-ETH!! - Por el sonido gorgoteante, jurarias que rie."),
+        ("No hay movimiento previo. Solo lo notas. El golpe simplemente ocurre, se manifiesta en ti.", "¡¡KHRON-ETH, KHRON-ETH!! - Por el sonido gorgoteante, jurarías que ríe."),
     ],
     "Bel'akhor, Principe Demonio": [
         ("El hacha de bronce cae como si la propia gravedad hubiera tomado partido. El impacto no resuena en el metal: resuena en tus dientes.", "Hubo un tiempo en que los reyes me obedecían."),
@@ -3497,6 +3361,7 @@ def _narrar_ataque_enemigo(nombre):
         narrar(narrativa)
 
 def _calcular_damage_total(daño_bruto, enemigo, efectos_especiales, mods_pasivos):
+    """Calculate total enemy damage including modifiers and special effects."""
     """
     Centraliza el cálculo de daño bruto considerando todas las fuentes de boosts:
     - Boost anterior (_damage_boost)
@@ -3547,6 +3412,7 @@ def _calcular_damage_total(daño_bruto, enemigo, efectos_especiales, mods_pasivo
         return daño_bruto
 
 def _planificar_efectos(personaje, enemigo, daño_final, efectos_especiales, mods_pasivos, stance):
+    """Plan all damage effects without applying them (separation of concerns)."""
     """
     **FASE 1: PLANIFICACIÓN** - Determina qué efectos se aplicarán sin modificar estado.
     Compatible con strings y Enums.Stance.
@@ -3625,6 +3491,7 @@ def _planificar_efectos(personaje, enemigo, daño_final, efectos_especiales, mod
     return plan
 
 def _ejecutar_efectos(personaje, enemigo, plan):
+    """Execute all planned damage effects on player."""
     """
     **FASE 2: EJECUCIÓN** - Aplica todos los efectos del plan al estado del juego.
     """
@@ -3761,10 +3628,7 @@ def turno_enemigo(personaje, enemigo, stance=None):
 # ================== TURNO DEL JUGADOR ==================
 
 def _aplicar_modificadores_stance(stance, daño, prob, stance_anterior, repeticiones_consecutivas):
-    """
-    **O(1) STANCE LOGIC** - Calcula modificadores de daño y precisión basados en stance.
-    Retorna: (daño_modificado, prob_modificada, penalizacion_str, nuevo_repeticiones)
-    """
+    """Calculate O(1) stance-based damage and accuracy modifiers."""
     penalizacion_str = ""
     nuevo_repeticiones = repeticiones_consecutivas
     
@@ -3901,7 +3765,7 @@ def turno_jugador(personaje, enemigo):
         if penalizacion_str:
             sistema(penalizacion_str)
         
-        # Actualizar stance anterior para el próximo turno
+        # Update previous stance for next turn
         if stance in ("bloquear", "esquivar"):
             stance_anterior = stance
 
@@ -4530,8 +4394,8 @@ def resolver_eventos_post_combate(personaje, enemigo):
 # 3. Mejorar el renderizado sin impactar la configuración
 # ════════════════════════════════════════════════════════════════════
 
-# Variables de compatibilidad para código legacy
-_IMG_BTN = {}  # Diccionario de imágenes de botones (cargadas dinámicamente)
+# Legacy compatibility variables (previous modules):
+_IMG_BTN = {}  # Button images (loaded dynamically)
 # Rutas de bordes eliminadas: sistema legacy nunca implementado
 # Se usaba carga de PNG para bordes decorativos (deprecado)
 
@@ -4608,15 +4472,15 @@ class Vista:
         # Referencia a imagen cargada (evita garbage collection de PhotoImage)
         self._imagen_tk = None
 
-        # Flag: True solo cuando el juego espera input del jugador.
+        # Flag: True only when game awaits player input.
         # La Entry queda bloqueada en cualquier otro momento.
         self._input_activo = False
 
-        # Flag: True mientras un typewriter esta escribiendo.
+        # Flag: True while typewriter is writing.
         # El polling espera a que termine antes de sacar el siguiente mensaje.
         self._ocupado = False
         
-        # Flag: True cuando estamos EN combate. Botones solo activos durante combate.
+        # Flag: True during combat. Buttons only active in combat.
         self._en_combate = False
 
         self._construir_layout()
@@ -4630,11 +4494,7 @@ class Vista:
     # ------------------------------------------------------------------
 
     def _construir_layout(self):
-        """
-        Grid raiz de 2 columnas x 2 filas.
-        Los pesos de columnconfigure/rowconfigure son los que controlan
-        las proporciones: cambiar PESO_COL_TEXTO etc. es suficiente.
-        """
+        """Build 2-column x 2-row grid layout with text, parser, image, and buttons."""
         self.root.columnconfigure(0, weight=self.PESO_COL_TEXTO)
         self.root.columnconfigure(1, weight=self.PESO_COL_PANEL)
         self.root.rowconfigure(0, weight=self.PESO_FILA_MAIN)
@@ -4646,18 +4506,8 @@ class Vista:
         self._construir_panel_stats_y_botones()
 
     def _reborde(self, parent, ruta_fondo=None, **grid_kwargs):
-        """
-        Crea un panel con reborde usando estructura_ui.crear_panel_con_fondo().
-        
-        Args:
-            parent: tk widget padre
-            ruta_fondo: str - Ruta a imagen PNG de fondo (opcional)
-            **grid_kwargs: grid parameters (row, column, padx, pady, etc)
-        
-        Devuelve el frame interior (content frame).
-        El frame exterior (outer) se accede mediante inner._reborde_outer.
-        """
-        # Usar estructura_ui para crear el panel con 3 capas (borde > canvas > frame)
+        """Create 3-layer panel (border > canvas > content frame) with optional background image."""
+        # Use estructura_ui factory to create 3-layer panel
         frame_contenido, canvas_fondo, outer = estructura_ui.crear_panel_con_fondo(
             parent,
             ruta_fondo=ruta_fondo,  # Cargar imagen si se proporciona
@@ -4695,11 +4545,7 @@ class Vista:
         self.texto.grid(row=0, column=0, sticky="nsew")
 
     def _construir_panel_parser(self):
-        """
-        Panel inferior izquierdo: registro de historial (Text) + Entry de input.
-        El registro muestra los comandos escritos y las respuestas del juego
-        que sean ecos de accion (tag 'preguntar'). La Entry es donde se escribe.
-        """
+        """Build parser panel: history display (Text) + input field (Entry)."""
         panel = self._reborde(self.root, ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_parser"],
                              row=1, column=0, padx=(6, 3), pady=(3, 6))
         self._borde_parser = panel._reborde_outer  # Guardar referencia al Frame exterior
@@ -4777,12 +4623,7 @@ class Vista:
         self._ruta_imagen_actual = None
 
     def _construir_panel_stats_y_botones(self):
-        """Panel derecho inferior: franja stats arriba, botones FIJOS abajo.
-        
-        Layout SIMPLE:
-        row 0: Stats strip (altura fija ALTO_STATS, weight=0)
-        row 1: Botones (altura fija BOTONES_AREA_HEIGHT, weight=0) ← NO expande
-        """
+        """Build right panel: stats strip (top) and fixed-size button grid (bottom)."""
         panel = self._reborde(self.root, ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_stats"],
                              row=1, column=1, padx=(3, 6), pady=(3, 6))
         self._borde_panel_derecho = panel._reborde_outer  # Guardar referencia al Frame exterior
@@ -4796,11 +4637,7 @@ class Vista:
         self._construir_area_botones(panel)
 
     def _construir_stats_strip(self, parent):
-        """
-        Franja permanente con vida, armadura, fuerza y destreza.
-        Se actualiza con actualizar_hud(). Nunca desaparece.
-        Altura controlada por ALTO_STATS.
-        """
+        """Build persistent HP/armor/stats display strip (fixed height)."""
         strip = tk.Frame(parent, bg=COLORES["fondo_panel"], height=self.ALTO_STATS)
         strip.grid(row=0, column=0, sticky="ew", padx=6, pady=(6, 2))
         strip.grid_propagate(False)   # respeta altura fija aunque esten vacios
@@ -4841,21 +4678,7 @@ class Vista:
         btn_cerrar.bind("<Leave>",    lambda e: btn_cerrar.configure(fg="#5a3030"))
 
     def _construir_area_botones(self, parent):
-        """
-        Contenedor FIJO de botones que se auto-dimensionan responsivamente.
-        Los botones se crean UNA VEZ y se auto-escalan al espacio disponible.
-        Layout:
-        row 0: Stances  (cols 1, 3)
-        row 1: Armas    (cols 0, 2, 4)
-        row 2: Acciones (cols 1, 3)
-        
-        Panel con altura FIJA (160px):
-        - 3 filas distribuidas: ~53px c/u
-        - Minsize: 50px (150px total < 160px disponibles)
-        - weight=0 para no sobreexpandirse
-        
-
-        """
+        """Build fixed-height combat button grid (3 rows: stances, weapons, actions)."""
         # Crear Frame simple para elementos de botones
         self._area_botones = tk.Frame(
             parent, bg=COLORES["fondo_panel"], height=self.BOTONES_AREA_HEIGHT
@@ -4955,18 +4778,7 @@ class Vista:
     # ------------------------------------------------------------------
 
     def _registrar_observadores_personaje(self):
-        """Registra callbacks de reactividad para cambios en personaje_global.
-        Se llama desde main() DESPUÉS de que personaje_global sea creado.
-        Los callbacks se activan cuando personaje_global.activo = True.
-        
-        CRÍTICO: Todos los callbacks usan root.after() para ser thread-safe.
-        El worker thread (que modifica personaje_global) no puede tocar widgets directamente.
-        root.after() encola la actualización al main thread Tkinter.
-        
-        NOTA: Se ejecutan callbacks iniciales para sincronizar sprites al cargar partida.
-        Los cambios en armas durante exploración se sincronizan directamente desde
-        aplicar_evento() que inyecta el callback _callback_ui_armas.
-        """
+        """Register reactive callbacks for character stat changes (thread-safe via root.after)."""
         # Observar cambios en stats - THREAD-SAFE con root.after()
         personaje_global.observe("vida", 
             lambda v: self.root.after(0, lambda: self.actualizar_hud(personaje_global)))
@@ -4996,13 +4808,7 @@ class Vista:
         self._on_armas_cambio()
 
     def _on_pociones_cambio(self, num_pociones):
-        """Callback reactivo: se ejecuta DESDE EL MAIN THREAD (via root.after).
-        Actualiza el sprite del botón de pociones según la cantidad disponible.
-        Muestra el sprite correspondiente a num_pociones (0-10).
-        
-        Nota: Este método ya está encolado en el main thread por root.after(),
-        así que es safe modificar widgets aquí.
-        """
+        """Update potion button sprite based on available count (0-10)."""
         if "pocion" in self._botones_acciones:
             cvs = self._botones_acciones["pocion"]
             # Limitar a 0-10 (máximo disponible)
@@ -5017,10 +4823,7 @@ class Vista:
                 cvs._dibujar()
     
     def _on_armas_cambio(self):
-        """Callback reactivo: se ejecuta DESDE EL MAIN THREAD (via root.after).
-        Actualiza los botones de armas cuando el inventario cambia en exploración.
-        IMPORTANTE: Solo muestra SPRITES, sin texto. El inventario se ve en la pantalla narrativa.
-        """
+        """Update weapon button sprites when inventory changes (only sprites, no text)."""
         if personaje_global is None:
             return
         
@@ -5063,10 +4866,7 @@ class Vista:
                     cvs._dibujar()
 
     def actualizar_hud(self, d):
-        """
-        Actualiza los labels de la franja de stats.
-        Acepta tanto el dict de hud_combate como el de stats.
-        """
+        """Update stats strip labels (HP, armor, strength, dexterity)."""
         vida     = d.get("vida", 0)
         vida_max = d.get("vida_max", 25)
         armadura = d.get("armadura", 0)
@@ -5089,11 +4889,7 @@ class Vista:
     # _limpiar_botones() eliminada: botones ahora son estáticos, no dinámicos
 
     def _cargar_imgs_btns(self):
-        """
-        Intenta cargar los PNG de pixel art para los botones.
-        Si un asset no existe simplemente no se carga y el botón
-        muestra solo texto. Rutas relativas a assets/btns/.
-        """
+        """Load PNG sprites for buttons from assets folder (graceful fallback to text-only)."""
         import pathlib
         base = pathlib.Path(resource_path(os.path.join("assets", "btns")))
         nombres = [
@@ -5154,10 +4950,7 @@ class Vista:
 
     def _boton(self, parent, texto, comando=None, activo=True,
                row=0, col=0, imagen=None, imagen_fondo=None):
-        """
-        Fabrica un botón Canvas RESPONSIVO que se auto-dimensiona al espacio.
-        Se redibuja automáticamente al cambiar tamaño de ventana/grid.
-        """
+        """Create responsive Canvas button that auto-scales to grid cell size."""
         # Establecer altura del Canvas según su fila (50, 60, 50 px)
         altura_por_fila = {0: 50, 1: 80, 2: 50}
         h = altura_por_fila.get(row, 50)
@@ -5214,11 +5007,7 @@ class Vista:
         return cvs
     
     def desactivar_botones_combate(self):
-        """
-        Desactiva TODOS los botones de combate cuando termina el combate.
-        El HUD sigue actualizándose, pero los botones no son clickeables.
-        Restaura los sprites de armas después de salir de la vista de combate.
-        """
+        """Disable all combat buttons and restore weapon sprites on combat exit."""
         self._en_combate = False
         
         # CRÍTICO: Restaurar sprites de armas después de salir del combate
@@ -5229,20 +5018,14 @@ class Vista:
         self._forzar_redraw_botones()
     
     def _redibujar_boton(self, cvs, texto, activo=True):
-        """
-        Actualiza estado de un botón y lo redibuja responsivamente.
-        SIN recrear el widget, solo cambia su contenido dinámicamente.
-        """
+        """Update button state and redraw without recreating widget."""
         cvs._btn_texto = texto
         cvs._btn_activo = activo
         cvs.configure(cursor="hand2" if activo else "arrow")
         cvs._dibujar()
     
     def _forzar_redraw_botones(self):
-        """
-        Redibuja todos los botones de combate.
-        Se usa cuando _en_combate cambia para actualizar colores/apariencia.
-        """
+        """Redraw all combat buttons (used when active state changes)."""
         todos_los_botones = (list(self._botones_stances.values()) +
                             list(self._botones_armas.values()) +
                             list(self._botones_acciones.values()))
@@ -5251,10 +5034,7 @@ class Vista:
                 cvs._dibujar()
     
     def _actualizar_stances_visual(self):
-        """
-        Redibuja los botones de stance basado en estado interno (_toggle_state).
-        Usada por toggle de stances.
-        """
+        """Redraw stance buttons based on current toggle state."""
         activa = self._toggle_state.get('activa')
         
         bl_activo = (activa == 'bl')
@@ -5270,13 +5050,7 @@ class Vista:
         )
     
     def actualizar_botones_combate(self, armas, pociones, huida_bloqueada=False, pocion_usada_turno=False, stance=None):
-        """
-        REEMPLAZA a mostrar_botones_combate().
-        Actualiza botones estáticos sin recrearlos.
-        Se llama cada turno del combate para refrescar estado.
-        
-        ACTIVA automáticamente los botones de combate (los pone clickeables).
-        """
+        """Update combat button states without recreating; activate buttons for combat."""
         # Marcar que estamos EN combate (si no lo estábamos, forzar redraw)
         estaba_inactivo = not self._en_combate
         self._en_combate = True
@@ -5371,16 +5145,12 @@ class Vista:
     # ------------------------------------------------------------------
 
     def set_imagen(self, ruta_png):
-        """Registra la imagen activa y la carga en el canvas."""
+        """Register image path and load into canvas."""
         self._ruta_imagen_actual = ruta_png
         self._cargar_imagen()
 
     def _cargar_imagen(self):
-        """
-        Carga _ruta_imagen_actual escalada al tamanyo actual del canvas.
-        Se llama automaticamente al cambiar el tamanyo (evento <Configure>)
-        y desde set_imagen(). Si no hay imagen registrada no hace nada.
-        """
+        """Load registered image scaled to current canvas size (auto-called on <Configure>)."""
         if not self._ruta_imagen_actual:
             return
         w = self.canvas_imagen.winfo_width()
@@ -5407,13 +5177,13 @@ class Vista:
     # ------------------------------------------------------------------
 
     def _habilitar_input(self):
-        """Activa la Entry para que el jugador pueda escribir."""
+        """Enable Entry field for player to write commands."""
         self._input_activo = True
         self.parser_entry.configure(state="normal")
         self.parser_entry.focus_set()
 
     def _log_parser(self, texto, tag="cmd"):
-        """Escribe una linea en el registro del parser. Estilo terminal: texto + salto."""
+        """Append line to parser history (terminal-style echo)."""
         self.parser_registro.configure(state="normal")
         self.parser_registro.insert("end", texto + "\n", tag)
         self.parser_registro.see("end")
@@ -5454,7 +5224,7 @@ class Vista:
             self.on_input(texto)
 
     def _enviar_comando(self, cmd):
-        """Inyecta un comando como si el jugador lo hubiera escrito."""
+        """Inject command as if player typed it."""
         if not self._input_activo:
             return
         self.parser_entry.configure(state="normal")
@@ -5526,10 +5296,7 @@ class Vista:
             self.texto.configure(state="disabled")
 
     def _typewriter(self, texto, tag, indice, velocidad):
-        """
-        Escribe una letra cada `velocidad` ms usando .after().
-        Cuando termina libera _ocupado para que el polling continue.
-        """
+        """Type one character per `velocidad` ms using .after(); release _ocupado when done."""
         if indice < len(texto):
             self.texto.configure(state="normal")
             self.texto.insert("end", texto[indice], tag)
@@ -5601,10 +5368,7 @@ class Vista:
     # ------------------------------------------------------------------
 
     def _mostrar_stats_texto(self, d):
-        """
-        Muestra stats en el area narrativa cuando el jugador escribe 'stats'.
-        El HUD permanente ya los muestra siempre; esto es confirmacion verbal.
-        """
+        """Display stats in narrative area when player requests them (confirmation echo)."""
         self.agregar_texto("-- ESTADISTICAS --", "titulo", typewriter=False)
         vida_tag = "alerta" if d["vida"] < d["vida_max"] * 0.3 else "sistema"
         self.agregar_texto(f"  Vida:      {d['vida']} / {d['vida_max']}", vida_tag,  typewriter=False)
@@ -5615,10 +5379,7 @@ class Vista:
         self.agregar_texto(f"  Armas ({d['num_armas']}/3): {d['armas']}",  "sistema", typewriter=False)
 
     def _mostrar_menu_principal(self, opciones):
-        """
-        Menu de inicio: muestra las opciones en el texto principal.
-        Sin botones: el jugador responde por el parser (1/2/3).
-        """
+        """Display main menu options in narrative area (player responds via parser)."""
         for op in opciones:
             self.agregar_texto(op, "preguntar", typewriter=False)
 
@@ -5654,11 +5415,7 @@ class Vista:
     # ------------------------------------------------------------------
 
     def _iniciar_polling(self):
-        """
-        Cada 50ms saca UN mensaje de cola_mensajes y lo procesa.
-        Si hay un typewriter activo (_ocupado=True) no saca nada:
-        espera a que termine para no intercalar caracteres.
-        """
+        """Dequeue and process one message every 50ms without blocking Tkinter event loop."""
         if not self._ocupado and cola_mensajes:
             self.procesar_mensaje(cola_mensajes.popleft())
         self.root.after(50, self._iniciar_polling)
@@ -5709,14 +5466,13 @@ def main():
     # en lugar del dict original, permitiendo que los observadores detecten los cambios
     personaje = personaje_global
     
-    # Registrar observadores de reactitividad EN VISTA (usar root.after para ejecutar en main thread)
+    # Dependency injection: register observers (main thread via root.after)
     if vista_global is not None:
         # root será accesible como vista_global.root
         vista_global.root.after(0, vista_global._registrar_observadores_personaje)
 
     # ===== INYECCIÓN DE DEPENDENCIAS EN MÓDULO EVENTS =====
-    # Después de que todas las funciones se han definido, inyectamos
-    # las referencias al módulo events para que pueda accederlas.
+    # Inject event module dependencies after all functions defined
     if MODULOS_EVENTOS_DISPONIBLES:
         try:
             # Inyectar funciones narrativas
@@ -5770,7 +5526,7 @@ def _demo_vista():
     Cambiar _DEMO_ESTADO para ver cada grupo de botones.
     """
 
-    # --- Datos falsos de personaje para el HUD ---
+    # --- Test character data for HUD ---
     _DEMO_PERSONAJE = {
         "vida": 18, "vida_max": 25,
         "fuerza": 7, "destreza": 3,
@@ -5786,7 +5542,7 @@ def _demo_vista():
     # Cargar HUD con datos falsos
     vista.actualizar_hud(_DEMO_PERSONAJE)
 
-    # Texto de muestra para ver typewriter y colores
+    # Sample text to test typewriter and colors
     emitir("titulo_juego", {
         "titulo":    "TL;DR:DC",
         "subtitulo": "The Lost Dire Realm: Dungeon Crawler",

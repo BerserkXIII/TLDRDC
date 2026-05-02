@@ -1,6 +1,5 @@
 # ════════════════════════════════════════════════════════════════════
-# IMAGE MANAGER MODULE
-# Maneja carga de imágenes con caché y detección de PIL
+# IMAGE MANAGER
 # ════════════════════════════════════════════════════════════════════
 
 import tkinter as tk
@@ -20,10 +19,8 @@ except ImportError:
 
 class ImagenManager:
     """
-    Administrador centralizado de imágenes.
-    - Carga PNG y JPG con PIL si está disponible
-    - Mantiene caché para evitar garbage collection
-    - Fallback a tk.PhotoImage nativo para PNG sin PIL
+    Centralized image loader with caching.
+    Supports PNG/JPG via PIL when available; fallback to native Tkinter.
     """
     
     def __init__(self):
@@ -32,14 +29,14 @@ class ImagenManager:
     
     def cargar_imagen(self, ruta, tamaño=None):
         """
-        Carga imagen desde ruta (PNG o JPG).
+        Load image from path (PNG or JPG).
         
         Args:
-            ruta: str - Ruta absoluta al archivo de imagen
-            tamaño: (ancho, alto) opcional - Redimensiona si es dado
+            ruta: absolute path to image file
+            tamaño: (width, height) tuple for resizing (optional)
         
         Returns:
-            tk.PhotoImage o None si no se puede cargar
+            tk.PhotoImage or None if loading fails
         """
         if not ruta or not os.path.exists(ruta):
             return None
@@ -70,22 +67,22 @@ class ImagenManager:
     
     def validar_rutas(self, dict_rutas):
         """
-        Valida que todas las rutas en un diccionario existan.
+        Validate that all paths in dict exist.
         
         Args:
-            dict_rutas: dict - {"nombre": "ruta/archivo"}
+            dict_rutas: dict with {name: path} pairs
         
         Returns:
-            dict - {"nombre": existe_booleano}
+            dict with {name: bool} for each path
         """
         return {nom: os.path.exists(rut) for nom, rut in dict_rutas.items()}
     
     def limpiar_cache(self):
-        """Limpia el caché de imágenes."""
+        """Clear image cache."""
         self._cache.clear()
 
 # ════════════════════════════════════════════════════════════════════
-# INSTANCIA GLOBAL
+# GLOBAL INSTANCE
 # ════════════════════════════════════════════════════════════════════
 
 imagen_manager = ImagenManager()
