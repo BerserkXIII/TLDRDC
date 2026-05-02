@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 TESTS: events.py — Sistema de Bolsa de Eventos e Interacción Individual
 
@@ -267,7 +268,7 @@ class TestEvento1:
         mock_leer_input.return_value = "s"
         
         # ACT
-        with patch('events.random.choice', return_value="poción"):
+        with patch.object(events.random, 'choice', return_value="poción"):
             resultado = events._evento_1(personaje_base)
         
         # ASSERT
@@ -289,7 +290,7 @@ class TestEvento1:
         mock_leer_input.return_value = "s"
         
         # ACT
-        with patch('events.random.choice', return_value="corte"):
+        with patch.object(events.random, 'choice', return_value="corte"):
             resultado = events._evento_1(personaje_base)
         
         # ASSERT
@@ -315,7 +316,7 @@ class TestEvento1:
         mock_enemigo_aleatorio.return_value = {"nombre": "Sombra tenebrosa", "vida": 5}
         
         # ACT
-        with patch('events.random.choices', return_value=["sombra"]):
+        with patch.object(events.random, 'choices', return_value=["sombra"]):
             resultado = events._evento_1(personaje_base)
         
         # ASSERT
@@ -339,7 +340,7 @@ class TestEvento1:
         mock_leer_input.side_effect = ["xyz", "s"]
         
         # ACT
-        with patch('events.random.choice', return_value="poción"):
+        with patch.object(events.random, 'choice', return_value="poción"):
             resultado = events._evento_1(personaje_base)
         
         # ASSERT
@@ -363,7 +364,7 @@ class TestEvento1:
         mock_leer_input.return_value = "s"
         
         # ACT
-        with patch('events.random.choice', return_value="vacío"):
+        with patch.object(events.random, 'choice', return_value="vacío"):
             resultado = events._evento_1(personaje_base)
         
         # ASSERT
