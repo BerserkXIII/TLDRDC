@@ -172,7 +172,7 @@ class TestJefesEspeciales:
         assert len(e["habilidades"]) >= 2
         habilidades_nombres = {h["nombre"] for h in e["habilidades"]}
         assert "Gancho de Carnicero" in habilidades_nombres
-        assert "Recuperacion Impia" in habilidades_nombres
+        assert "Recuperación Impia" in habilidades_nombres
 
 
     @patch('TLDRDC_Prueba1.narrar')
@@ -243,7 +243,7 @@ class TestJefesEspeciales:
         assert e["jefe"] == True
         assert e["daño"] == (8, 9)
         habilidades_nombres = {h["nombre"] for h in e["habilidades"]}
-        assert "Regeneracion grotesca" in habilidades_nombres
+        assert "Regeneración grotesca" in habilidades_nombres
 
 
     @patch('TLDRDC_Prueba1.narrar')
@@ -755,7 +755,7 @@ class TestActivasCustom:
             "daño": (5, 5), "esquiva": 0, "jefe": False, "armadura": 0,
             "habilidades": [
                 {
-                    "nombre": "Recuperacion Impia", "tipo": "activa", "prob": 1.0,
+                    "nombre": "Recuperación Impia", "tipo": "activa", "prob": 1.0,
                     "condicion": "vida_baja", "threshold": 0.5, "efecto": "recuperacion_impia"
                 }
             ],
