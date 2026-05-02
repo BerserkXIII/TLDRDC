@@ -15,6 +15,7 @@ Pillow>=9.0.0           # Para cargar y procesar imágenes (JPG, PNG, etc.)
 
 # Dependencias opcionales (para desarrollo):
 pytest>=7.0.0          # Para tests unitarios
+flaky>=3.7.0           # Para soportar tests flaky (reintentos probabilísticos)
 black>=22.0.0          # Para formateo de código
 pylint>=2.0.0          # Para linting
 mypy>=0.900            # Para type checking
