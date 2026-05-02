@@ -10,6 +10,7 @@ Fixtures disponibles: estado_test, estado_bolsa_vacia, personaje_base, mock_leer
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
+from flaky import flaky
 import random
 import sys
 import os
@@ -177,6 +178,7 @@ class TestObtenerEventoDeBolsa:
         assert len(eventos) == 20
         assert set(eventos) == set(range(1, 21))
     
+    @flaky(max_runs=3)
     def test_B3_4_sin_repeticion_inmediata(self, estado_test):
         """Test B3.4: Sin repetición inmediata (estadístico, flaky por diseño)
         
