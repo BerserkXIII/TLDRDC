@@ -79,6 +79,8 @@ class EstructuraUI:
                         canvas.delete("background")
                         canvas.create_image(0, 0, image=img, anchor="nw", tags="background")
                         canvas.tag_lower("background")  # Enviar al fondo
+                        # CRÍTICO: Asegurar que "content" (contenedor de widgets) esté encima
+                        canvas.tag_raise("content")  # Traer al frente el frame de contenido
                 except Exception as e:
                     print(f"Error redimensionando fondo {ruta_fondo}: {e}")
         

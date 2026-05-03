@@ -4443,7 +4443,7 @@ class Vista:
     BTN_FONT       = ("Consolas", 10)
     BTN_PADX       = 10
     BTN_PADY       = 5
-    BOTONES_AREA_HEIGHT = 340  # Altura FIJA del área de botones (px). Ajusta aquí, no cambia el panel.
+    BOTONES_AREA_HEIGHT = 1  # FLEXIBLE: usa todo el espacio disponible (weight=1)
 
     # --- Velocidad typewriter (ms por letra) ---
     VELOCIDAD_TYPEWRITER = {
@@ -4630,7 +4630,7 @@ class Vista:
         self._panel_derecho = panel  # Guardar referencia al panel interior (para fondo dinámico)
         
         panel.rowconfigure(0, weight=0)   # stats: fija
-        panel.rowconfigure(1, weight=0, minsize=self.BOTONES_AREA_HEIGHT)  # botones: FIJA
+        panel.rowconfigure(1, weight=1)  # botones: FLEXIBLE - usa todo el espacio sobrante
         panel.columnconfigure(0, weight=1)
 
         self._construir_stats_strip(panel)
@@ -4681,23 +4681,21 @@ class Vista:
         """Build fixed-height combat button grid (3 rows: stances, weapons, actions)."""
         # Crear Frame simple para elementos de botones
         self._area_botones = tk.Frame(
-            parent, bg=COLORES["fondo_panel"], height=self.BOTONES_AREA_HEIGHT
+            parent, bg=COLORES["fondo_panel"]
         )
         
-        # sticky="ew" = estira horizontalmente sin expandir verticalmente
-        self._area_botones.grid(row=1, column=0, sticky="ew", padx=4, pady=(2, 4))
-        self._area_botones.grid_propagate(False)  # Respetar altura fija
+        # sticky="nsew" = estira en todas direcciones para llenar espacio disponible
+        self._area_botones.grid(row=1, column=0, sticky="nsew", padx=4, pady=(2, 4))
+        self._area_botones.grid_propagate(False)  # Respetar tamaño calculado por grid
         
         # 5 columnas con weight=1 → equipartición horizontal
         for i in range(5):
             self._area_botones.columnconfigure(i, weight=1)
         
-        # 3 filas con altura proporcional
-        # Suma minsize: 50 + 55 + 50 = 155px < 160px (sobrante = 5px)
-        # Fila 1 (armas) con weight=1 absorbe espacio sobrante → 60px final
-        self._area_botones.rowconfigure(0, weight=0, minsize=80)   # Stances (compacto)
-        self._area_botones.rowconfigure(1, weight=0, minsize=200)   # Armas (crece flexiblemente)
-        self._area_botones.rowconfigure(2, weight=0, minsize=65)   # Acciones (compacto)
+        # 3 filas con altura proporcional (weight permite expandir con el espacio disponible)
+        self._area_botones.rowconfigure(0, weight=1)   # Stances (flexible)
+        self._area_botones.rowconfigure(1, weight=1)   # Armas (flexible)
+        self._area_botones.rowconfigure(2, weight=1)   # Acciones (flexible)
         
         self._botones_armas = {}
         self._botones_stances = {}
@@ -4750,8 +4748,8 @@ class Vista:
         self._botones_acciones['pocion'] = cvs_pocion
         
         cvs_huir = self._boton(
-            self._area_botones, "Huir", lambda: self._enviar_comando("h"),
-            activo=False, row=2, col=3, imagen=None
+            self._area_botones, "", lambda: self._enviar_comando("h"),
+            activo=False, row=2, col=3, imagen="huida"
         )
         self._botones_acciones['huir'] = cvs_huir
         
@@ -4906,7 +4904,7 @@ class Vista:
                 _IMG_BTN[nombre] = img
         
         # Cargar sprites dinámicos de pociones (0-10)
-        pociones_base = pathlib.Path(resource_path(os.path.join("images", "Botones", "pociones")))
+        pociones_base = pathlib.Path(resource_path(os.path.join("images", "panel botones", "pociones")))
         for i in range(11):
             nombre = f"{i}pociones"
             ruta = pociones_base / f"{nombre}.png"
@@ -4915,7 +4913,7 @@ class Vista:
                 _IMG_BTN[nombre] = img
         
         # Cargar sprites de stances (bloqueo y esquiva)
-        stances_base = pathlib.Path(resource_path(os.path.join("images", "Botones", "stances")))
+        stances_base = pathlib.Path(resource_path(os.path.join("images", "panel botones", "stances")))
         for nombre in ["bloqueo", "esquiva"]:
             ruta = stances_base / f"{nombre}.png"
             img = imagen_manager.cargar_imagen(str(ruta))
@@ -4923,7 +4921,7 @@ class Vista:
                 _IMG_BTN[nombre] = img
         
         # Cargar sprites de armas dinámicamente desde carpeta
-        armas_base = pathlib.Path(resource_path(os.path.join("images", "Botones", "armas")))
+        armas_base = pathlib.Path(resource_path(os.path.join("images", "panel botones", "armas")))
         if armas_base.exists():
             for archivo_png in armas_base.glob("*.png"):
                 nombre_sprite = archivo_png.stem
@@ -4938,11 +4936,18 @@ class Vista:
                             break
         
         # Cargar imagen de fondo para botones de armas
-        fondo_armas_path = pathlib.Path(resource_path(os.path.join("images", "Botones", "fondo armas", "FondoArmas.png")))
+        fondo_armas_path = pathlib.Path(resource_path(os.path.join("images", "panel botones", "fondo", "fondo.png")))
         if fondo_armas_path.exists():
             img_fondo = imagen_manager.cargar_imagen(str(fondo_armas_path))
             if img_fondo:
                 _IMG_BTN["fondo_armas"] = img_fondo
+        
+        # Cargar imagen de acciones (huida)
+        huida_path = pathlib.Path(resource_path(os.path.join("images", "panel botones", "huida", "huida.png")))
+        if huida_path.exists():
+            img_huida = imagen_manager.cargar_imagen(str(huida_path))
+            if img_huida:
+                _IMG_BTN["huida"] = img_huida
 
     # ELIMINADO: _cargar_bordes_imagen() y _aplicar_borde_imagen()
     # Sistema legacy de decoración PNG para bordes nunca fue implementado completamente.
@@ -4951,13 +4956,9 @@ class Vista:
     def _boton(self, parent, texto, comando=None, activo=True,
                row=0, col=0, imagen=None, imagen_fondo=None):
         """Create responsive Canvas button that auto-scales to grid cell size."""
-        # Establecer altura del Canvas según su fila (50, 60, 50 px)
-        altura_por_fila = {0: 50, 1: 80, 2: 50}
-        h = altura_por_fila.get(row, 50)
-        
         cvs = tk.Canvas(
             parent, bg=COLORES["fondo_panel"], highlightthickness=0,
-            cursor="hand2" if activo else "arrow", height=h
+            cursor="hand2" if activo else "arrow"
         )
         cvs.grid(row=row, column=col, padx=4, pady=3, sticky="nsew")
 
