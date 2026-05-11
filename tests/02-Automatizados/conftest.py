@@ -28,6 +28,25 @@ _code_dir = os.path.join(_root_dir, "code")
 if _code_dir not in sys.path:
     sys.path.insert(0, _code_dir)
 
+import copy
+import TLDRDC_Prueba1
+
+# ════════════════════════════════════════════════════════════════════
+# CLEANUP FIXTURE: Resetea estado global después de cada test
+# ════════════════════════════════════════════════════════════════════
+
+@pytest.fixture(autouse=True)
+def reset_estado_after_test():
+    """Resetea estado global después de cada test para evitar contaminación entre tests."""
+    # Guardar estado original al inicio del test
+    original_estado = copy.deepcopy(TLDRDC_Prueba1.estado)
+    
+    yield  # El test corre aquí
+    
+    # Restaurar estado original al final del test
+    TLDRDC_Prueba1.estado.clear()
+    TLDRDC_Prueba1.estado.update(original_estado)
+
 # ════════════════════════════════════════════════════════════════════
 # PERSONAJE FIXTURES
 # ════════════════════════════════════════════════════════════════════

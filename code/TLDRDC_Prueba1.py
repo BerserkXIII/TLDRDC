@@ -489,13 +489,13 @@ def guardar_partida(personaje):
             json.dump(datos, f, ensure_ascii=False, indent=2)
         os.replace(tmp_path, RUTA_SAVE)
     except Exception as e:
-        alerta(f"✘ Error al guardar: {e}")
+        alerta(f"Error al guardar: {e}")
 
 
 def cargar_partida():
     """Load game state from saved file; restore global state and return player."""
     if not os.path.exists(RUTA_SAVE):
-        alerta("✘ No hay partida guardada.")
+        alerta("No hay partida guardada.")
         return None
     try:
         with open(RUTA_SAVE, "r", encoding="utf-8") as f:
@@ -515,7 +515,7 @@ def cargar_partida():
         personaje = data.get("personaje", {})
         campos_req = {"nombre", "vida", "fuerza", "destreza", "pociones", "nivel"}
         if not campos_req.issubset(personaje.keys()):
-            alerta("✘ El guardado está incompleto o dañado.")
+            alerta("El guardado está incompleto o dañado.")
             return None
         
         # CRÍTICO: Sincronizar armas en personaje (se guardan en estado pero no en personaje)
@@ -524,10 +524,10 @@ def cargar_partida():
         
         return personaje
     except json.JSONDecodeError as e:
-        alerta(f"✘ El archivo de guardado está corrupto: {e}")
+        alerta(f"El archivo de guardado está corrupto: {e}")
         return None
     except Exception as e:
-        alerta(f"✘ Error al cargar: {e}")
+        alerta(f"Error al cargar: {e}")
         return None
 
 
@@ -598,6 +598,15 @@ def obtener_texto_exploracion_de_bolsa():
 # ================== PERSONAJE ==================
 
 def crear_personaje():
+    # RESETEAR estado global para nueva partida (elimina contaminación de tests)
+    estado["armas_jugador"] = {}
+    estado["ruta_jugador"] = []
+    estado["eventos_superados"] = 0
+    estado["veces_guardado"] = 0
+    estado["_c01"] = 0
+    estado["pasos_nivel2"] = []
+    estado["pasos_secretos"] = []
+    
     narrar("\nTe duele la cabeza, pero no es dolor, es una presión aguda en tu cabeza,"
            "como si algo hubiese anidado entre tus pensamientos y reptara tras tus ojos."
            "Te despiertas entumecido, con el frío de la piedra en los huesos, y descubres con horror que no puedes moverte.")
@@ -3055,7 +3064,7 @@ def decrementar_efectos_temporales_jugador(personaje):
             efectos_a_remover.append(efecto)
             if efecto == "armor_reduction":
                 # Informar al jugador que se recuperó la armadura
-                sistema(f"🛡 Tu armadura se ha recuperado de la reducción temporal.")
+                sistema(f"Tu armadura se ha recuperado de la reducción temporal.")
     
     for efecto in efectos_a_remover:
         del efectos[efecto]
@@ -3130,7 +3139,7 @@ def aplicar_habilidades_pasivas(enemigo, personaje):
             elif efecto == "heal":
                 # Aplicar healing directamente al enemigo
                 enemigo["vida"] = min(enemigo.get("vida_max", enemigo["vida"]), enemigo["vida"] + valor)
-                sistema(f"💚 {enemigo['nombre']} está regenerando. (+{valor} HP)")
+                sistema(f"{enemigo['nombre']} está regenerando. (+{valor} HP)")
     
     return modificadores
 
@@ -3158,25 +3167,25 @@ def ejecutar_habilidad_activa(enemigo, personaje):
             if efecto == "reducir_armadura":
                 valor = hab.get("valor", 1)
                 personaje["armadura"] = max(0, personaje.get("armadura", 0) - valor)
-                sistema(f"🛡 {enemigo['nombre']} usa {nombre_hab}: Tu defensa se debilita.")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: Tu defensa se debilita.")
                 return resultado
             
             elif efecto == "damage_boost":
                 enemigo["_damage_boost"] = hab.get("valor", 0.5)
-                alerta(f"⚡ {enemigo['nombre']} usa {nombre_hab}: Se prepara para un ataque potenciado.")
+                alerta(f"{enemigo['nombre']} se prepara para un ataque potenciado.")
                 return resultado
             
             elif efecto == "recuperacion_impia":
                 # Forrix: heals 4 HP and prepares damage_boost 20%
                 enemigo["vida"] = min(enemigo.get("vida_max", enemigo["vida"]), enemigo["vida"] + 4)
                 enemigo["_damage_boost"] = 0.2
-                alerta(f"💚⚡ {enemigo['nombre']} usa {nombre_hab}: Se cura y se prepara para un golpe devastador.")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: Se cura y se prepara para un golpe devastador.")
                 resultado["debe_atacar"] = True
                 return resultado
             
             elif efecto == "acuchillamiento":
                 # Sanakht: ejecuta ataque normal que causa 2 sangrado extra
-                alerta(f"🩸 {enemigo['nombre']} usa {nombre_hab}: Se posiciona para un ataque devastador.")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: Se posiciona para un ataque devastador.")
                 resultado["debe_atacar"] = True
                 resultado["efectos"]["sangrado_extra"] = 2
                 return resultado
@@ -3184,12 +3193,12 @@ def ejecutar_habilidad_activa(enemigo, personaje):
             elif efecto == "esquiva_temporal":
                 # Sanakht: reduces player accuracy for 2 turns
                 enemigo["_efectos_temporales"]["precision_reducida"] = {"valor": 10, "turnos_restantes": 2}
-                alerta(f"👻 {enemigo['nombre']} usa {nombre_hab}: Se sumerge en las sombras, eliminándote del plano de la realidad.")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: Se sumerge en las sombras, eliminándote del plano de la realidad.")
                 return resultado
             
             elif efecto == "golpes_furiosos":
                 # Mano: ejecuta ataque con +30% daño y 10% stun
-                alerta(f"💥 {enemigo['nombre']} usa {nombre_hab}: ¡Golpes furiosos desde todos lados!")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: ¡Golpes furiosos desde todos lados!")
                 resultado["debe_atacar"] = True
                 resultado["efectos"]["damage_boost"] = 0.3
                 resultado["efectos"]["stun_chance"] = 0.1
@@ -3197,7 +3206,7 @@ def ejecutar_habilidad_activa(enemigo, personaje):
             
             elif efecto == "frensi_demoniaco":
                 # Ka-Banda: attack with +25% damage + 30% boost for 2 turns
-                alerta(f"🔥 {enemigo['nombre']} usa {nombre_hab}: ¡ENTRA EN UN FRENESÍ DEMONIACO!")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: ¡ENTRA EN UN FRENESÍ DEMONIACO!")
                 enemigo["_damage_boost"] = 0.25  # +25% para este ataque
                 enemigo["_efectos_temporales"]["damage_boost"] = {"valor": 0.3, "turnos_restantes": 2}
                 resultado["debe_atacar"] = True
@@ -3205,18 +3214,18 @@ def ejecutar_habilidad_activa(enemigo, personaje):
             
             elif efecto == "drenaje_almas":
                 # Bel'akhor: ataque que se cura con el daño hecho
-                alerta(f"💀 {enemigo['nombre']} usa {nombre_hab}: ¡Tu esencia es suya!")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: ¡Tu esencia es suya!")
                 resultado["debe_atacar"] = True
                 resultado["efectos"]["drenaje"] = True
                 resultado["efectos"]["drenaje_porcentaje"] = 0.5  # 50% del daño se cura
                 # También reduce armadura
                 personaje["armadura"] = max(0, personaje.get("armadura", 0) - 1)
-                alerta(f"🛡 Tu defensa falla. Tu armadura se debilita.")
+                alerta(f"Tu defensa falla. Tu armadura se debilita.")
                 return resultado
             
             elif efecto == "arrebato_apocaliptico":
                 # Bel'akhor: ataque brutal con -2 armadura temporal
-                alerta(f"⚔️ {enemigo['nombre']} usa {nombre_hab}: ¡La ruina te alcanza!")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: ¡La ruina te alcanza!")
                 resultado["debe_atacar"] = True
                 resultado["efectos"]["damage_boost"] = 0.6
                 resultado["efectos"]["armor_reduction"] = 2
@@ -3226,14 +3235,14 @@ def ejecutar_habilidad_activa(enemigo, personaje):
             elif efecto == "inyeccion_quirurgica":
                 # Fabius: heals 3 HP and prepares powered attack
                 enemigo["vida"] = min(enemigo.get("vida_max", enemigo["vida"]), enemigo["vida"] + 3)
-                alerta(f"💚⚡ {enemigo['nombre']} usa {nombre_hab}: Se inyecta algo. Sonríe con complacencia.")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: Se inyecta algo. Sonríe con complacencia.")
                 resultado["debe_atacar"] = True
                 resultado["efectos"]["damage_boost"] = 0.25
                 return resultado
             
             elif efecto == "incision_mortal":
                 # Fabius: ataque brutal +40% daño + 3 sangrado
-                alerta(f"⚔️ {enemigo['nombre']} usa {nombre_hab}: ¡Tu cuerpo será su obra maestra!")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: ¡Tu cuerpo será su obra maestra!")
                 resultado["debe_atacar"] = True
                 resultado["efectos"]["damage_boost"] = 0.4
                 resultado["efectos"]["sangrado_extra"] = 3
@@ -3241,7 +3250,7 @@ def ejecutar_habilidad_activa(enemigo, personaje):
             
             elif efecto == "azotazo_demonico":
                 # Bel'akhor: ataque +35% daño + 2 sangrado
-                alerta(f"💥 {enemigo['nombre']} usa {nombre_hab}: ¡EL FIN DEL MUNDO!")
+                alerta(f"{enemigo['nombre']} usa {nombre_hab}: ¡EL FIN DEL MUNDO!")
                 resultado["debe_atacar"] = True
                 resultado["efectos"]["damage_boost"] = 0.35
                 resultado["efectos"]["sangrado_extra"] = 2
@@ -3497,7 +3506,7 @@ def _ejecutar_efectos(personaje, enemigo, plan):
     """
     # Esquiva exitosa: terminar aquí
     if plan.get("esquiva_exitosa"):
-        exito(f"💨 Esquivas el ataque. (tirada {plan['stance_info'][1]})")
+        exito(f"Esquivas el ataque.")
         return
     
     # Reportar stance
@@ -3506,9 +3515,9 @@ def _ejecutar_efectos(personaje, enemigo, plan):
         if tipo_stance == "bloquear":
             reduccion = resultado
             if reduccion > 0:
-                sistema(f"🛡 Bloqueas parte del golpe. (tirada {tirada}, -{int(reduccion*100)}% daño)")
+                sistema(f"Bloqueas parte del golpe.")
             else:
-                sistema(f"Intentas bloquear pero no cubres el golpe. (tirada {tirada})")
+                sistema(f"Intentas bloquear pero no cubres el golpe.")
     
     # Aplicar daño
     daño = plan["daño"]
@@ -3528,7 +3537,7 @@ def _ejecutar_efectos(personaje, enemigo, plan):
         cura = int(daño * drenaje["porcentaje"])
         enemigo["vida"] = min(enemigo.get("vida_max", enemigo["vida"]), enemigo["vida"] + cura)
         _log_debug("EFFECT_EXEC", f"Drenaje: {enemigo['nombre']} cura {cura} HP")
-        exito(f"💀 {enemigo['nombre']} absorbe tu vida: +{cura} HP.")
+        exito(f"{enemigo['nombre']} absorbe tu vida.")
         # También reduce armadura al aplicar drenaje
         personaje["armadura"] = max(0, personaje.get("armadura", 0) - drenaje["cura_directa_armadura"])
     
@@ -3542,25 +3551,25 @@ def _ejecutar_efectos(personaje, enemigo, plan):
             "turnos_restantes": ar["duracion"]
         }
         _log_debug("EFFECT_EXEC", f"Armadura temporal: -{ar['valor']} por {ar['duracion']} turnos")
-        alerta(f"🛡 Tu armadura se reduce en {ar['valor']} durante {ar['duracion']} turno(s).")
+        alerta(f"Tu armadura se reduce en {ar['valor']} durante {ar['duracion']} turno(s).")
     
     # Sangrado
     if plan.get("sangrado", 0) > 0:
         enemigo["sangrado"] = enemigo.get("sangrado", 0) + plan["sangrado"]
         _log_debug("EFFECT_EXEC", f"Sangrado: +{plan['sangrado']} (total={enemigo['sangrado']})")
-        alerta(f"🩸 Te causa sangrado de {plan['sangrado']}.")
+        alerta(f"Te causa sangrado de {plan['sangrado']}.")
     
     # Reducción de armadura pasiva
     if plan.get("armor_reduction_pasiva", 0) > 0:
         personaje["armadura"] = max(0, personaje.get("armadura", 0) - plan["armor_reduction_pasiva"])
         _log_debug("EFFECT_EXEC", f"Armadura reducida pasivamente: -{plan['armor_reduction_pasiva']}")
-        alerta(f"🛡 Tu armadura se reduce en {plan['armor_reduction_pasiva']}.")
+        alerta(f"Tu armadura se reduce en {plan['armor_reduction_pasiva']}.")
     
     # Stun
     if plan.get("stun"):
         personaje["stun"] = personaje.get("stun", 0) + 1
         _log_debug("EFFECT_EXEC", f"Stun aplicado (total={personaje.get('stun', 0)})")
-        alerta(f"⚡ ¡Te quedas aturdido!")
+        alerta(f"¡Te quedas aturdido!")
 
 def turno_enemigo(personaje, enemigo, stance=None):
     """Resuelve el turno del enemigo aplicando la stance declarada por el jugador."""
@@ -3577,7 +3586,7 @@ def turno_enemigo(personaje, enemigo, stance=None):
 
         if enemigo.get("stun", 0) > 0:
             _log_debug("TURN", f"  {nombre} está aturdido")
-            alerta(f"⚡ {nombre} está aturdido y pierde el turno.")
+            alerta(f"{nombre} está aturdido y pierde el turno.")
             enemigo["stun"] = max(0, enemigo["stun"] - 1)
             decrementar_efectos_temporales(enemigo)
             return
@@ -3615,12 +3624,12 @@ def turno_enemigo(personaje, enemigo, stance=None):
         # Aplicar modificación de armadura pasiva (de habilidades pasivas)
         if mods.get("armor_reduction", 0) > 0:
             personaje["armadura"] = max(0, personaje.get("armadura", 0) - mods["armor_reduction"])
-            alerta(f"🛡 Tu armadura se reduce en {mods['armor_reduction']}.")
+            alerta(f"Tu armadura se reduce en {mods['armor_reduction']}.")
         
         # Aplicar stun_chance de habilidades especiales
         if "stun_chance" in efectos_especiales and random.random() < efectos_especiales["stun_chance"]:
             personaje["stun"] = personaje.get("stun", 0) + 1
-            alerta(f"⚡ ¡Quedas aturdido/a!")
+            alerta(f"¡Quedas aturdido/a!")
         
         # Decrementar efectos temporales al final del turno del enemigo
         decrementar_efectos_temporales(enemigo)
@@ -3683,7 +3692,7 @@ def turno_jugador(personaje, enemigo):
         if accion == _normalizar_enum(Accion.STANCE_BLOQUEAR) or accion == "bloquear":
             stance = None if stance == "bloquear" else "bloquear"
             if stance == "bloquear":
-                sistema("🛡 Postura de bloqueo activa. Tu guardia absorbe el impacto. Tu ataque pierde fuerza.")
+                sistema("Postura de bloqueo activa. Tu guardia absorbe el impacto. Tu ataque pierde fuerza.")
             else:
                 sistema("Postura de bloqueo desactivada.")
                 stance_anterior = None
@@ -3694,7 +3703,7 @@ def turno_jugador(personaje, enemigo):
         if accion == _normalizar_enum(Accion.STANCE_ESQUIVAR) or accion == "esquivar":
             stance = None if stance == "esquivar" else "esquivar"
             if stance == "esquivar":
-                sistema("💨 Postura de esquiva activa. Danzas entre sombras. Tu puntería se vuelve caprichosa.")
+                sistema("Postura de esquiva activa. Danzas entre sombras. Tu puntería se vuelve caprichosa.")
             else:
                 sistema("Postura de esquiva desactivada.")
                 stance_anterior = None
@@ -3771,22 +3780,22 @@ def turno_jugador(personaje, enemigo):
 
         if random.randint(1, 100) <= prob:
             enemigo["vida"] -= daño
-            exito(f"Golpeas por {daño}.")
+            exito(f"Golpeas por {daño} de daño.")
 
             if "vida" in arma:
                 personaje["vida"] += arma["vida"]
-                exito(f"Tu arma absorbe {arma['vida']} de vida.")
+                exito(f"Tu arma absorbe la vida.")
 
             if "sangrado" in arma:
                 enemigo["sangrado"] = enemigo.get("sangrado", 0) + arma["sangrado"]
-                alerta(f"🩸 Provocas sangrado: {arma['sangrado']} por turno.")
+                alerta(f"Provocas sangrado: {arma['sangrado']} de daño.")
 
             if "stun" in arma and random.randint(1, 6) <= arma["stun"]:
                 enemigo["stun"] = 1
-                alerta(f"⚡ ¡{enemigo['nombre']} queda aturdido!")
+                alerta(f"¡{enemigo['nombre']} queda aturdido!")
             if "auto_daño" in arma:
                 personaje["vida"] -= arma["auto_daño"]
-                alerta(f"La empuñadura del hacha te desgarra. -{arma['auto_daño']} de vida.")
+                alerta(f"La empuñadura del hacha te desgarra.")
         else:
             alerta("Fallas el golpe.")
 
@@ -3800,7 +3809,7 @@ def aplicar_sangrado(enemigo):
     daño = enemigo.get("sangrado", 0)
     if daño > 0:
         enemigo["vida"] -= daño
-        alerta(f"🩸 {enemigo['nombre']} sangra: -{daño} de vida.")
+        alerta(f"{enemigo['nombre']} sangra y recibe daño.")
 
 
 # ================== BUCLE DE COMBATE ==================
@@ -5497,7 +5506,7 @@ def main():
             events_module.estado = estado
             events_module.armas_global = armas_global
             
-            # sistema("✓ Módulo de eventos correctamente inicializado")
+            # sistema("Módulo de eventos correctamente inicializado")
         except Exception as e:
             alerta(f"Error al inyectar dependencias en eventos: {e}")
     
