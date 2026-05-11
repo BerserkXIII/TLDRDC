@@ -3158,7 +3158,7 @@ def ejecutar_habilidad_activa(enemigo, personaje):
             if efecto == "reducir_armadura":
                 valor = hab.get("valor", 1)
                 personaje["armadura"] = max(0, personaje.get("armadura", 0) - valor)
-                sistema(f"🛡 {enemigo['nombre']} usa {nombre_hab}: Tu armadura se reduce en {valor}.")
+                sistema(f"🛡 {enemigo['nombre']} usa {nombre_hab}: Tu defensa se debilita.")
                 return resultado
             
             elif efecto == "damage_boost":
@@ -3642,7 +3642,7 @@ def _aplicar_modificadores_stance(stance, daño, prob, stance_anterior, repetici
         # Penalización acumulativa: -10% probabilidad por turno repitiendo
         penalizacion = nuevo_repeticiones * 10
         prob = max(0, prob - penalizacion)
-        penalizacion_str = f"Penalización por repetir postura: -{penalizacion}% precisión (turnos consecutivos: {nuevo_repeticiones})"
+        penalizacion_str = "Ya conoce tu patrón. Te esquiva con mayor facilidad cada vez."
     else:
         nuevo_repeticiones = 0
     
@@ -3683,7 +3683,7 @@ def turno_jugador(personaje, enemigo):
         if accion == _normalizar_enum(Accion.STANCE_BLOQUEAR) or accion == "bloquear":
             stance = None if stance == "bloquear" else "bloquear"
             if stance == "bloquear":
-                sistema("🛡 Postura de bloqueo activa. Tu ataque hará la mitad de daño.")
+                sistema("🛡 Postura de bloqueo activa. Tu guardia absorbe el impacto. Tu ataque pierde fuerza.")
             else:
                 sistema("Postura de bloqueo desactivada.")
                 stance_anterior = None
@@ -3694,7 +3694,7 @@ def turno_jugador(personaje, enemigo):
         if accion == _normalizar_enum(Accion.STANCE_ESQUIVAR) or accion == "esquivar":
             stance = None if stance == "esquivar" else "esquivar"
             if stance == "esquivar":
-                sistema("💨 Postura de esquiva activa. Precisión y daño reducidos un 33%.")
+                sistema("💨 Postura de esquiva activa. Danzas entre sombras. Tu puntería se vuelve caprichosa.")
             else:
                 sistema("Postura de esquiva desactivada.")
                 stance_anterior = None
@@ -3750,13 +3750,13 @@ def turno_jugador(personaje, enemigo):
         esquiva_enemigo = enemigo.get("esquiva", 0)
         if esquiva_enemigo:
             prob = max(0, prob - esquiva_enemigo)
-            sistema(f"El enemigo esquiva parte de tu ataque: -{esquiva_enemigo}% precisión.")
+            sistema("Se mueve demasiado rápido. Tu golpe falla.")
         
         # Aplicar reducción de precisión temporal (Sombra Oculta, etc)
         if "_efectos_temporales" in enemigo and "precision_reducida" in enemigo["_efectos_temporales"]:
             reduccion = enemigo["_efectos_temporales"]["precision_reducida"]["valor"]
             prob = max(0, prob - reduccion)
-            sistema(f"El enemigo está envuelto en sombras: -{reduccion}% precisión.")
+            sistema("Las sombras nublan tu visión. El golpe sale fallido.")
 
         # Modificadores de stance sobre el ataque del jugador (O(1) complexity)
         daño, prob, penalizacion_str, repeticiones_consecutivas = _aplicar_modificadores_stance(
@@ -5168,7 +5168,7 @@ class Vista:
             self.canvas_imagen.delete("all")
             self.canvas_imagen.create_image(0, 0, anchor="nw", image=self._imagen_tk)
         except Exception as e:
-            sistema(f"No se pudo cargar imagen: {e}")
+            pass  # sistema(f"No se pudo cargar imagen: {e}")
 
     # ELIMINADO: _cargar_fondo_panel_derecho() - Legacy system nunca implementado.
     # Variables _RUTA_FONDO_PANEL_DERECHO siempre fueron None.
@@ -5220,7 +5220,7 @@ class Vista:
         self._historial_parser.append(texto)
         self._historial_idx = -1
         self._log_parser(f"> {texto}", tag="cmd")
-        self.agregar_texto(f"Elegiste : {texto}", "elegiste", typewriter=False)
+        # self.agregar_texto(f"Elegiste : {texto}", "elegiste", typewriter=False)
         if self.on_input:
             self.on_input(texto)
 
@@ -5497,7 +5497,7 @@ def main():
             events_module.estado = estado
             events_module.armas_global = armas_global
             
-            sistema("✓ Módulo de eventos correctamente inicializado")
+            # sistema("✓ Módulo de eventos correctamente inicializado")
         except Exception as e:
             alerta(f"Error al inyectar dependencias en eventos: {e}")
     
