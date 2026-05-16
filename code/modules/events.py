@@ -425,7 +425,7 @@ def _evento_7(personaje):
                 narrar("Intentas procesar los símbolos, descifrarlos, pero son demasiados y van demasiado rápido.")
                 narrar("Algo en tu mente cede con un crujido sordo. El dolor es blanco y total.")
                 susurros_aleatorios()
-                narrar("Cuando vuelves en ti, el libro está cerrado y el atril está vacío.")
+                narrar("Cuando vuelves en ti, el libro no está y el atril está roto por la mitad.")
                 narrar("No recuerdas qué has visto, pero tu cuerpo lo sabe. Cada músculo está en alerta.")
                 alerta("El coste ha sido alto. Pero algo ha quedado grabado donde antes no había nada.")
                 return {"destreza": 1, "vida": -2}
@@ -1046,7 +1046,7 @@ def _evento_17(personaje):
         narrar("La cabeza colgando hacia abajo. El pelo pegado a la cara. No se mueve.")
         narrar("Sus ropas están desgarradas, pero debajo hay piezas de equipo que todavía tienen forma.")
         narrar("No hay sangre en el suelo. Solo las cadenas, tensas, ancladas a la piedra del techo como si alguien hubiera planeado esto.")
-        preguntar("¿Registras al hombre suspendido? (s/n)")
+        preguntar("¿Registras al hombre encadenado? (s/n)")
         resp = leer_input("> ", personaje)
         if resp in ["s", "si"]:
             narrar("Te acercas despacio, atento a cada sonido.")

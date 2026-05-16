@@ -914,10 +914,10 @@ def _explorar_paso(personaje):
         narrar("Durante un segundo, jurarías haber oído tu nombre susurrado entre las piedras.")
         narrar("La sombra no vuelve a aparecer. Pero la sensación de que algo te ha localizado, sí.")
     elif textos_exploracion == 3:
-        narrar("El aire se vuelve más denso y frío a medida que avanzas. Sientes un escalofrío recorrer tu espalda.")
+        narrar("El aire se vuelve más denso, caso cristalino, a medida que avanzas. Sientes un escalofrío recorrer tu espalda.")
         narrar("Tu respiración forma una leve neblina frente a ti, y cada paso resuena más de lo normal.")
         narrar("Por la sangre escarchada del suelo dirías que el frío proviene de la izquierda...")
-        narrar("No es el frío de la piedra. Es otro tipo de frío. El que no viene del ambiente.")
+        narrar("No es el frío de la piedra. Es otro tipo de frío, mas profundo.")
     elif textos_exploracion == 4:
         narrar("De repente, escuchas un ruido detrás de ti. Te das la vuelta rápidamente, pero solo ves oscuridad...")
         narrar("El silencio que sigue es aún peor, como si algo estuviera conteniendo el aliento.")
@@ -1096,7 +1096,7 @@ def _explorar_paso(personaje):
                 narrar("No ha atacado. No sabes si por misericordia o porque no le interesas así.")
 
     elif resp == "d" and textos_exploracion == 2:
-        narrar("Te alejas de donde viste la sombra. Aquí abajo, lo que se mueve con esa fluidez no persigue buenas intenciones.")
+        narrar("Te alejas de donde viste la sombra. Aquí abajo, nada tiene buenas intenciones.")
         narrar("El pasillo de la derecha se estrecha. El aire pesa. Huele a hierro y a sudor rancio.")
         narrar("Acelereas el paso. Pero a los pocos segundos lo oyes: respiración rota, pasos caóticos, algo que rebota contra las paredes.")
         narrar("Un Rabioso dobla el recodo a toda velocidad, babeando sangre, con los ojos en blanco.")
@@ -1120,14 +1120,14 @@ def _explorar_paso(personaje):
 
     # TEXTO 3: Frío y densidad
     elif resp == "i" and textos_exploracion == 3:
-        narrar("El pasillo de la izquierda exhala frío. No como el de la piedra húmeda al que ya te has acostumbrado.")
-        narrar("Este muerde. Te detienes un segundo en el umbral, sin saber muy bien por qué.")
+        narrar("El pasillo de la izquierda exhala una niebla densa, distinta del resto de la mazmorra.")
+        narrar("Esta escarcha muerde. Te detienes un segundo en el umbral, sin saber muy bien por qué.")
         narrar("No tiene sentido que haga tanto frío aquí abajo. No debería.")
         narrar("Pero la sangre del suelo lleva tiempo congelada, y las paredes están cubiertas de escarcha.")
         narrar("Avanzas. El primer crujido bajo tu bota te pone el estómago del revés.")
         tirada = random.randint(1, 25)
         if tirada > personaje["fuerza"]:
-            narrar("El frío te va debilitando. Primero los dedos, luego las manos, luego los brazos al completo.")
+            narrar("El hielo te va debilitando. Primero los dedos, luego las manos, luego los brazos al completo.")
             narrar("Los charcos de sangre helada se fragmentan bajo cada paso como si la mazmorra te avisara de algo.")
             narrar("Las esquirlas saltan y te abren cortes en los tobillos, en las espinillas.")
             alerta("Pequeñas heridas. Pero aquí abajo, las pequeñas heridas se acumulan.")
@@ -1142,13 +1142,12 @@ def _explorar_paso(personaje):
             combate(personaje, enemigo_aleatorio(enemigo))
     elif resp == "d" and textos_exploracion == 3:
         narrar("No. El frío no es para ti.")
-        narrar("Giras a la derecha antes de que tu cuerpo te convenza de lo contrario.")
-        narrar("Pero el calor no llega. Solo desaparece el frío seco y llega la humedad, que es distinto.")
-        narrar("El pasillo rezuma agua por todas partes. El suelo está negro y brillante.")
+        narrar("Giras a la derecha antes de enfriarte más.")
+        narrar("Avanzas un trecho, pero el calor no llega. Chapoteas entre el agua helada y hielos afilados.")
+        narrar("El pasillo rezuma agua por todas partes. El suelo está anegado.")
         narrar("Cada paso suena demasiado. Aquí no hay forma de moverse en silencio.")
         tirada = random.randint(1, 25)
         if tirada > personaje["destreza"]:
-            narrar("El suelo parece firme. No lo es.")
             narrar("Tu pie cede hacia un lado y el cuerpo va detrás antes de que puedas hacer nada.")
             alerta("Caes de lado contra la piedra. El golpe en tu cadera y codo resuena por todo tu cuerpo y por todo el pasillo.")
             narrar("Te quedas quieto un momento, escuchando si algo ha oído la caída.")
@@ -1157,7 +1156,7 @@ def _explorar_paso(personaje):
         else:
             narrar("Oyes la respiración antes de verlo. Rota, convulsa, como si los pulmones no funcionaran bien.")
             narrar("Los pasos vienen de todas partes a la vez, rebotando en las paredes mojadas.")
-            alerta("Un Rabioso dobla el recodo a ciegas, babeando sangre, con los brazos abiertos.")
+            alerta("Una silueta humanoida dobla el recodo a ciegas, babeando sangre, con los brazos abiertos.")
             enemigo = random.choice(["Rabioso", "Perturbado", "Maniaco Mutilado"])
             combate(personaje, enemigo_aleatorio(enemigo))
 
@@ -1300,18 +1299,18 @@ def _explorar_paso(personaje):
                 narrar("Las arrancas. El pasillo queda en silencio.")
                 aplicar_evento({"armadura": 1}, personaje)
             else:
-                narrar("Un paso atrás. Otro.")
+                narrar("Das un paso atrás. Otro...")
                 narrar("La figura te sigue con los ojos mientras retrocedes, sin moverse, sin hacer nada.")
                 narrar("Cuando doblas el recodo, oyes el arrastre que se reanuda. Esta vez alejándose.")
-                narrar("No te sigue. Ya consiguió lo que quería: seguir en pie.")
-                narrar("Tú también.")
+                narrar("No te sigue. Solo estaba escapando.")
+                narrar("Tú también, aunque no lo sabias...")
                 susurros_aleatorios()
+                narrar("El sonido se va alejando, pero el eco queda en tu mente...")
         else:
             # 20% — era un señuelo
             narrar("El rastro termina en un recodo cerrado. No hay figura.")
             narrar("Solo el suelo más oscuro, más pegajoso que el resto. Y el olor dulzón que se intensifica aquí dentro.")
             narrar("Entonces lo ves: el suelo respira.")
-            alerta("No era una figura. Era un señuelo.")
             alerta("Un maniaco emerge de las sombras del fondo, rápido, directo, sin ningún aviso previo.")
             combate(personaje, enemigo_aleatorio("Maniaco Mutilado"))
 
@@ -1977,10 +1976,10 @@ def _explorar_paso(personaje):
     elif resp == "d" and textos_exploracion == 15:
         narrar("Giras a la izquierda.")
         narrar("Llevas unos pasos cuando lo recuerdas: las marcas solo estaban en la izquierda.")
-        narrar("Deberías ir hacia la derecha. Hacia donde guían.")
+        narrar("Deberías ir hacia la derecha. Hacia donde te guían. Pero avanzas automaticamente.")
         narrar("Tus pensamientos son confusos. Quieres volver atrás, pero sigues avanzando...")
         susurros_aleatorios()
-        narrar("El pasillo gira. Luego otra vez. Bajas sin recordar haber bajado.")
+        narrar("El pasillo gira. Luego otra vez. Bajas sin recordar haber subido.")
         narrar("Llegas a un borde. Hay un foso abajo. Hay Rabiosos en el foso.")
         narrar("No tienes tiempo de procesar más. Sientes la adrenalina pulsando en tu cerebro.")
         preguntar("¿Qué haces? (h)uir / (l)uchar")
@@ -2476,7 +2475,7 @@ def aplicar_evento(evento, personaje):
                 if personaje["fuerza"] > personaje["fuerza_max"]:
                     personaje["fuerza"] = personaje["fuerza_max"]
                     sistema(f"Fuerza al máximo ({personaje['fuerza']}).")
-            exito(f"Fuerza aumenta. Ahora es: {personaje['fuerza']}")
+            exito(f"Tú fuerza aumenta. Ahora es: {personaje['fuerza']}")
         # ---------------- DESTREZA ----------------
         elif key == "destreza":
             personaje["destreza"] += valor
@@ -2485,19 +2484,19 @@ def aplicar_evento(evento, personaje):
                 if personaje["destreza"] > personaje["destreza_max"]:
                     personaje["destreza"] = personaje["destreza_max"]
                     sistema(f"Destreza al máximo ({personaje['destreza']}).")
-            exito(f"Destreza aumenta. Ahora es: {personaje['destreza']}")
+            exito(f"Tú destreza aumenta. Ahora es: {personaje['destreza']}")
         # ---------------- ARMADURA ----------------
         elif key == "armadura":
             personaje["armadura"] += valor
             if "armadura_max" in personaje and personaje["armadura"] > personaje["armadura_max"]:
                 personaje["armadura"] = personaje["armadura_max"]
-                sistema(f"Armadura al máximo ({personaje['armadura_max']}).")
+                sistema(f"A pesar de ser util, no puedes llevar más armadura.")
             if personaje["armadura"] < 0:
                 personaje["armadura"] = 0
             if valor > 0:
-                exito(f"Armadura +{valor}. Armadura actual: {personaje['armadura']}")
+                exito(f"Te colocas las piezas de armadura como puedes.")
             elif valor < 0:
-                alerta(f"Armadura -{abs(valor)}. Armadura actual: {personaje['armadura']}")
+                alerta(f"Tu armadura se ha dañado y ya no te protege tanto.")
 
         # ---------------- ARMAS ----------------
         elif key == "armas":
@@ -2527,117 +2526,121 @@ _FIB_SET: frozenset = frozenset({2, 3, 5, 8, 13, 21, 34, 55, 89})
 # Por defecto todos usan el tag "narrar"; los susurros usan ("texto", "susurros").
 _LORE_FIBONACCI: dict = {
     2: (
-        "Te arrodillas sobre algo que dejó de moverse y no sientes lo que esperabas "
-        "sentir. Quizá porque no recuerdas qué se supone que debes sentir. No recuerdas "
-        "nada antes de este corredor húmedo, estas manos llenas de sangre, este latido "
-        "que sigue como si supiera algo que tú no.",
-        "Cuando el eco del combate se apaga, las cadenas colgadas de los muros aún vibran "
-        "levemente. Durante un instante juras que el suelo respira bajo tus rodillas. No "
-        "es aire. Es un movimiento lento, profundo, como algo arrastrándose bajo toneladas "
-        "de piedra. Entre los latidos de tu sien aparece un susurro que desaparece en "
-        "cuanto intentas retenerlo.",
-        ("nido.", "susurros"),
+        "Te arrodillas frente a tu victima y no sientes lo que esperabas sentir."
+        "Quizá porque no recuerdas qué se supone que debes sentir."
+        "No recuerdas nada antes de este corredor húmedo, estas manos llenas de sangre,"
+        "este latido en las sienes que sisea como si supiera algo que tú no.",
+        "Cuando el eco del pasillo se apaga y las cadenas colgadas de los muros ya no vibran , lo notas."
+        "Durante un instante juras que el suelo respira bajo tus rodillas."
+        "Un movimiento lento, profundo, como algo arrastrándose bajo toneladas de piedra."
+        "Entre los latidos de tu sien aparece un susurro que desaparece "
+        "con una punzada cuando intentas retenerlo.",
     ),
     3: (
-        "Tu cuerpo aprende más rápido que tu mente. Tu mente sigue intentando entender "
-        "qué es este lugar. Tu cuerpo ya lo sabe: es un sitio donde nada dura lo "
-        "suficiente para tener nombre.",
-        "Ves marcas en la piedra. No son cortes de herramientas ni arañazos de bestia. "
-        "Son repeticiones. Símbolos tallados una y otra vez hasta quebrar la superficie "
-        "del muro. Al principio parecen simples surcos, pero cuando los observas demasiado "
-        "tiempo tu mente intenta cerrarlos, unirlos, completarlos como si fueran palabras "
-        "incompletas. Como si fueran nombres olvidados.",
-        "Cada vez que estás cerca de entenderlos, el pensamiento se corrompe y se deshace, "
-        "como carne que empieza a pudrirse.",
-    ),
-    5: (
-        "Uno de ellos tardó demasiado en morir. Sus labios seguían moviéndose cuando ya "
-        "no había razón para que lo hicieran.",
-        "La criatura no rezaba. Enumeraba. Palabras fragmentadas salían entre dientes rotos: "
-        "rey… falso… sombra… sangre… Las repetía como si fueran cuentas de un rosario "
+        "Tu cuerpo se mueve antes de que tu mente lo ordene, y apuñalas el cadaver sin pensar."
+        "Tu cuerpo aprende más rápido que tu mente, y se esta asegurando de que este no se levante."
+        "No te reconoces en tus actos, pero tampoco te sorprende lo que haces. Lo ves necesario, inevitable.",
+        "Al salir de tu frenesí y levantarte recuerdas. Palabras fragmentadas salían entre dientes rotos: "
+        "'amo… falso… sombra… sangre…' Las repetía como si fueran cuentas de un rosario "
         "enfermo. Lo peor ocurrió después: dentro de tu propia cabeza esas mismas palabras "
         "empezaron a reorganizarse solas, como si alguien intentara reconstruir un recuerdo "
-        "usando tu mente como herramienta. Cada combinación parece acercarse a algo "
-        "importante, pero cuando estás a punto de comprenderlo el significado se descompone "
-        "y desaparece.",
+        "usando tu mente como herramienta. Cada combinación duele, pero parece acercarse a algo "
+        "importante, y cuando estás a punto de comprender algo, el significado se descompone "
+        "y desaparece, sustituido por un desaliento y tristeza que te consume.",
+    ),
+    5: (
+        "La sangre de tu última víctima corre por el suelo, y de manera antinatural, trepa lentamente por los muros."
+        "Rellenan los huecos de la piedra, y ves marcas profundas. No son cortes de herramientas ni armas. "
+        "Son sucias e irregulares, como arañazos. Símbolos tallados una y otra vez hasta quebrar la superficie "
+        "del muro. Al principio parecen simbolos simples, pero cuando los observas un tiempo,  "
+        "tu mente intenta cerrarlos, unirlos, completarlos como si fueran palabras "
+        "Como si fueran nombres olvidados...",
+        "Sientes un escalofrio cuando tu mente reconoce tu nombre, aunque en otro 'idioma'."
+        "Algo dentro te dice que no debes permitirlo, que es peligroso, un acto primal y malevolo."
+        "Te apresuras a limpiar la sangre con las manos, y esta comienza a trepar por tus brazos."
+        "Presa del panico, te sacudes y echas a correr sin pensarlo. Cuando te detienes, tus manos estan limpias."
+        "No sabes sí habras logrado algo, o solo te has condenado mas...",
     ),
     8: (
-        "Llevas suficientes muertes encima para empezar a escuchar lo que hay debajo del "
-        "ruido. No es un don. Es una herida que todavía no sabes que tienes.",
-        "Hay un nombre sepultado entre los gritos de tus enemigos. No lo gritan: lo exhalan. "
-        "Solo cuando están muriendo, cuando el último aliento escapa hacia el suelo, ese "
-        "nombre los precede. Lo escupen hacia abajo. Hacia las piedras. Como ofrenda, o "
-        "como reconocimiento de algo que lleva más tiempo aquí que ellos.",
+        "Llevas suficientes muertes encima para sentirte culpable, pero no lo haces. No sientes nada."
+        "No es un don. Es una herida que todavía no sabes que tienes.",
+        "Ves un hombre sepultado entre escombros. Su calavera te mira directamente.",
         ("Sanakrt.", "susurros"),
-        "Nadie aquí parece rendirle culto. Pero nadie se mueve en estas profundidades sin "
-        "orientarse en torno a ese nombre, como agujas que apuntan a un norte que ningún "
-        "mapa conoce.",
+        "'Nadie' parece rendirle culto. Pero 'nadie' se mueve en estas profundidades sin su protección."
+        "Le crees, y sin dilación, te das la vuelta y sigues tu camino, teniendo en cuenta lo aprendido."
+        "Al doblar la esquina, sientes terror profundo."and
+        "¿Que ha sido eso?¿Te estan ayudando, o te quieren enloquecer más?",
     ),
     13: (
-        "El siguiente enemigo que abates se abre como una fruta podrida cuando cae. De su "
-        "interior no salen vísceras normales, sino un zumbido oscuro. Moscas. Demasiadas. "
-        "Se arremolinan sobre el cadáver con una avidez que parece casi consciente.",
-        "Entonces recuerdas fragmentos de historias escuchadas en algún lugar que ya no "
-        "logras situar. Las moscas llegaron primero. No como insectos comunes, sino como "
-        "hambre con alas. Los primeros cadáveres de esta prisión se abrieron ante ellas y "
-        "de esa carne surgieron enjambres que aprendieron a devorar cuerpos vivos. Los "
-        "supervivientes comenzaron a llamarlo la Plaga. Pero el nombre duró poco, porque "
-        "pronto dejaron de hablar.",
-        "La plaga no solo consume carne: también devora voces, recuerdos, palabras enteras.",
+        "El siguiente enemigo que abates cae como una fruta podrida."
+        "De un hueco de la pared baja una mosca y se posa en la cabeza de tu victima. "
+        "Se pasea sobre el cadáver con una avidez que parece casi consciente.",
+        "Entonces comienza a arrancar carne con una especie de manos, y devorarla con sus mandibulas."
+        "Te fijas que su caparazon tiene cierta forma de rostro. "
+        "Un rostro bello y ciertamente familiar. Tiene una expresion tranquila, como si estuviera disfrutando de un manjar exquisito. "
+        "Admiras la escena con fascinación, embelesado con el frenesí mientras se alimenta."
+        "Sin querer molestarla, rodeas el cadaver y prosigues tu camino."
+        "Pero desearias que te acompañara, posada en tu hombro. Te sientes solo, y esa criatura parece entenderlo.",
     ),
     21: (
-        "Hay más de un modo de sobrevivir aquí y ninguno merece ese nombre. Lo entiendes "
-        "viendo cómo se matan entre ellos con más convicción de la que tú traes.",
-        "Unos mutilaron sus propios cuerpos para volverse invisibles al enjambre: "
-        "aprendieron a existir en el silencio de las grietas, a moverse como sombras que "
-        "ya no necesitan cuerpo. Otros eligieron lo contrario: la furia constante como "
-        "escudo, el movimiento perpetuo como armadura, la violencia como el único dios "
-        "al que todavía rezan.",
-        "Se cazan entre sí cuando el hambre aprieta. Se odian con la ferocidad de quienes "
-        "comparten una herida que nunca cerrará. Pero cuando mueren —los silenciosos y los "
-        "furiosos por igual— pronuncian el mismo nombre.",
+        "Hilando fragmentos de lo que has escuchado y visto, recuerdas algo."
+        "Hay más de un modo de sobrevivir aquí, y ninguno merece llamarse así."
+        "Has visto cómo se matan entre ellos con más convicción de la que tú traes.",
+        "Unos mutilan sus propios cuerpos para volverse invisibles al enjambre: "
+        "aprendieron a existir en el silencio de las grietas, a moverse como sombras."
+        "Los otros al contrario: beligerancia, la furia constante como vida."
+        "La violencia como plegaria para el único dios al que todavía rezan.",
         ("Ka'banda.", "susurros"),
-        "No como plegaria. No como maldición. Como si ningún otro idioma pudiera nombrar "
-        "lo que alguna vez los gobernó.",
+        "No importa quien sea, o lo que hizo, todos lo temen. Es asi."
+        "Aceptas esta verdad, la interiorizas, pero te preguntas si lo recordaras cuando lo necesites.",
     ),
     34: (
-        "Lo peor no son las criaturas que no razonan. Lo peor es lo que hay detrás de ellas.",
-        "Hay seres en esta prisión que ni siquiera los otros monstruos se atreven a tocar. "
-        "No nacieron aquí. Fueron traídos. Demonios menores, herramientas vivientes que "
-        "obedecen órdenes que nadie ha escuchado en siglos. Entre los delirios de los "
-        "prisioneros moribundos aparece un nombre humano mezclado con los de esas criaturas.",
-        ("Fabius.", "susurros"),
-        "No suena como el nombre de quien llegó aquí encadenado. Este lugar fue levantado "
-        "para contener lo que no puede destruirse. Su obra no es diferente.",
+        "Estas harto de estar aqui, de matar, de sentirte cada vez mas vacío. Pero no puedes dejar de hacerlo."
+        "Y lo peor no son las criaturas que no razonan. Lo peor es lo que hay detrás de ellas.",
+        "Hay seres en esta prisión que ni siquiera los otros monstruos se atreven a nombrar. "
+        "Entre los delirios que has visto, hay un nexo que los une a todos.",
+        "Sabes que esto va mas alla del entendimiento, pero esto es obra de un humano."
+        "La logica te grita que esto es el mundo real, a pesar de lo que has visto."
+        "Se rige por las mismas reglas, aunque aqui esas reglas se hayan corrompido hasta el punto de ser irreconocibles."
+        "Con todo lo que sabes, avanzas preguntandote que humano mantendria esto,y por qué."
     ),
     55: (
-        "Las mazmorras no caen. Se llenan. Esta tiene capas como una cicatriz que tardó "
-        "demasiado en cerrarse, cada era depositando su propia podredumbre encima de la anterior.",
-        "Primero fue un bastión levantado para la guerra. Después un presidio donde encerrar "
-        "a los enemigos de algún reino olvidado. Más tarde se convirtió en un lugar donde "
-        "ocultar cosas que nadie debía recordar: rituales fallidos, experimentos prohibidos, "
-        "horrores que no podían destruirse pero tampoco liberarse. Con el tiempo, los muros "
-        "absorbieron todo ese sufrimiento como una esponja negra. Cuando la plaga llegó, y "
-        "los demonios la siguieron, la prisión ya estaba preparada para recibirlos.",
-        "Era un recipiente esperando llenarse. Pero debajo de todas esas capas, más profundo "
-        "que el primer fundamento, algo lleva aquí más tiempo que la propia prisión. Anterior "
-        "a la guerra, anterior a los reyes, anterior a los nombres mismos.",
-        ("Sanakrt.", "susurros"),
+        "Mientras limpias tus armas de sangre, sientes cierto alivio. Crees que estas cerca."
+        "Ya no debe quedar mucho..."
+        "'¿Como que no? Sí apenas hemos empezado a rascar la superficie.'"
+        "La superficie? ¿De qué hablas? ¡Sí estamos bajo tierra!"
+        "'Bueno, no me tomes tan literal. O bueno, quizas esto es solo la superficie de algo mas profundo...'"
+        "¿Mas profundo que este infierno? ¡Eso no puede existir!"
+        "'Ya claro, como si tu pudieras llegar a concebir todo lo que puede existir o no'"
+        "¿Peró...? ¿Quién eres tú? ¿Cómo sabes tanto? ¿Qué quieres de mí?"
+        "'¡Qué mas dá! Tu sigue avanzando, quiero ver que hay mas adelante'"
+        "Llegare hasta el final, cueste lo que cueste."
+        "'Y sea lo que sea... te aseguro que no sera el final.'",
     ),
     89: (
-        "Los fragmentos que llevas recogiendo —nombres, palabras sueltas, imágenes sin "
-        "contexto— dejan de ser ruido y empiezan a tener forma.",
-        "Fabius, el hombre cuya obra solo este lugar podía contener. Ka'banda, el eco de un "
-        "rey sangriento cuyo recuerdo aún corrompe estas piedras. Sanakrt, algo que espera "
-        "en lo profundo donde ni siquiera los ejércitos han nacido todavía. Y por encima de "
-        "todos, Be'lakor, una sombra tan vasta que no necesita cuerpo para dominar este lugar.",
-        "Entonces comprendes algo que te hiela la sangre: la mazmorra no es una ruina "
-        "abandonada ni un accidente. Es un semillero. Un lugar donde se cultivan monstruos, "
-        "plagas y demonios a lo largo de generaciones.",
-        "Y mientras desciendes un nuevo tramo de escaleras cubiertas de sangre seca, una "
-        "sospecha se clava en tu mente. Quizá todos los horrores que has matado eran solo "
-        "intentos fallidos. Prototipos. Experimentos incompletos.",
-        "Y tú… tú podrías ser el último resultado que este lugar llevaba siglos intentando crear.",
+        "El silencio después de la matanza es mas profundo. Como si algo estuviera esperando."
+        "Entonces lo ves reflejado en el espejo que forma el charco de sangre."
+        "No refleja tu imagen. Refleja lo que fuiste.",
+        "Un rostro que conoces pero no reconoces. Manos limpias. Ojos sin vacío."
+        "Y detrás de ti, en el reflejo, una figura observa. Siempre ha estado ahí."
+        "La Voz en tu cabeza no dice nada. Por primera vez, calla."
+        "La figura del reflejo le parte el cuello a tu imagen, y lo sientes."
+        "El espejo se agrieta desde el centro, como una tela de araña.",
+        "Cada fragmento refleja una versión distinta: prisionero, guardián, arquitecto, sacrificio."
+        "En todos ellos, tus manos sostienen algo. Una llave. Una cadena. Un cuchillo. Un nombre."
+        "Extiendes la mano para tocar el cristal de sangre y poder escapar..."
+        "De todos los caminos que vislumbras, te encuentras en este, ahora."
+        "Sientes miedo. No sabes si es el correcto, y lo peor es que no puedes cambiarlo... o si?",
+        "Te esfuerzas en tocar algun reflejo. Cualquiera. El dolor del cuello aumenta, tirando de tí."
+        "Notas como los huesos de tu brazo se separan intentando llegar al espejo."
+        "El horror te recorre, el dolor te llena, pero quieres escapar, sea como sea, cueste lo que cueste."
+        "Con un grito desgarardo empujas tu mano a través del espejo de sangre, y el mundo se descompone a tu alrededor...",
+        ("{nombre}, ¿Qué has hecho...?"),
+        "En los segundo antes de abrir los ojos, sientes paz."
+        "Hasta que notas la fria piedra en tu rostro. Sientes las manos pesadas, mojadas."
+        "Te levantas desesperado, hundido. Tus manos chorrean sangre que no es tuya."
+        "¿Qué ha pasado? ¿Qué has hecho? No lo sabes. Hace mucho que no lo sabes..."
+        "Ya te da igual, solo quieres seguir adelante, terminar, aunque no sabes si hay un final..."
     ),
 }
 
@@ -2652,6 +2655,7 @@ def _mostrar_lore_fibonacci(combate: int) -> None:
     for fragmento in fragmentos:
         if isinstance(fragmento, tuple):
             texto, tag = fragmento
+            texto = texto.replace("{nombre}", personaje_global.get("nombre", ""))
             emitir(tag, texto)
         else:
             narrar(fragmento)
@@ -3526,7 +3530,7 @@ def _ejecutar_efectos(personaje, enemigo, plan):
     
     _log_debug("EFFECT_EXEC", f"Aplicando daño: {daño} (bruto={daño_bruto}, arm={armadura})")
     if armadura > 0 and daño < daño_bruto:
-        alerta(f"Recibes {daño} de daño.  ({daño_bruto} − {armadura} armadura)")
+        alerta(f"Recibes {daño} de daño.")
     else:
         alerta(f"Recibes {daño} de daño.")
     personaje["vida"] -= daño
@@ -3557,7 +3561,7 @@ def _ejecutar_efectos(personaje, enemigo, plan):
     if plan.get("sangrado", 0) > 0:
         enemigo["sangrado"] = enemigo.get("sangrado", 0) + plan["sangrado"]
         _log_debug("EFFECT_EXEC", f"Sangrado: +{plan['sangrado']} (total={enemigo['sangrado']})")
-        alerta(f"Te causa sangrado de {plan['sangrado']}.")
+        alerta(f"Los ataques de {enemigo['nombre']} te causan heridas sangrantes.")
     
     # Reducción de armadura pasiva
     if plan.get("armor_reduction_pasiva", 0) > 0:
@@ -3759,13 +3763,11 @@ def turno_jugador(personaje, enemigo):
         esquiva_enemigo = enemigo.get("esquiva", 0)
         if esquiva_enemigo:
             prob = max(0, prob - esquiva_enemigo)
-            sistema("Se mueve demasiado rápido. Tu golpe falla.")
         
         # Aplicar reducción de precisión temporal (Sombra Oculta, etc)
         if "_efectos_temporales" in enemigo and "precision_reducida" in enemigo["_efectos_temporales"]:
             reduccion = enemigo["_efectos_temporales"]["precision_reducida"]["valor"]
             prob = max(0, prob - reduccion)
-            sistema("Las sombras nublan tu visión. El golpe sale fallido.")
 
         # Modificadores de stance sobre el ataque del jugador (O(1) complexity)
         daño, prob, penalizacion_str, repeticiones_consecutivas = _aplicar_modificadores_stance(
@@ -3788,7 +3790,6 @@ def turno_jugador(personaje, enemigo):
 
             if "sangrado" in arma:
                 enemigo["sangrado"] = enemigo.get("sangrado", 0) + arma["sangrado"]
-                alerta(f"Provocas sangrado: {arma['sangrado']} de daño.")
 
             if "stun" in arma and random.randint(1, 6) <= arma["stun"]:
                 enemigo["stun"] = 1
@@ -3809,7 +3810,7 @@ def aplicar_sangrado(enemigo):
     daño = enemigo.get("sangrado", 0)
     if daño > 0:
         enemigo["vida"] -= daño
-        alerta(f"{enemigo['nombre']} sangra y recibe daño.")
+        alerta(f"{enemigo['nombre']} sangra por tu ataque y recibe daño.")
 
 
 # ================== BUCLE DE COMBATE ==================
@@ -4128,10 +4129,11 @@ def resolver_eventos_post_combate(personaje, enemigo):
                 dialogo("'Aquí abajo nadie quiere los brazos cuando dejan de obedecer. Los arrancan. Los pisan. Los olvidan.'")
                 dialogo("'Pero yo puedo arreglarlos.' Te cuenta mientras revolotea por el cadaver del mutilado.")
                 narrar("Se lleva la mano al pecho. La piel allí no coincide con la de su cuello.")
-                dialogo("'Él corta para mejorar.'")
-                dialogo("'Yo coso para acompañar.' Baja la voz, de manera casi solemne.")
+                dialogo("'Él crea para 'mejorar'.' Notas un tono raro en su voz cuando dice eso.")
+                dialogo("'Yo coso para hacer compañia.' Baja la voz, de manera casi solemne.")
                 dialogo("'No me gusta estar solo cuando la piedra empieza a respirar y decir cosas.'")
-                narrar("Y por primera vez entiendes que no está hablando solo de sí mismo.")
+                narrar("Y te das cuenta de que está hablando de algo más profundo que su desgraciada existencia.")
+                narrar("Habla de la piedra como si fuera un ser vivo, totalmente absorto. Pero de pronto te mira fijamente")
                 narrar("La criatura abre la boca más de lo que debería y deja escapar un gorjeo de satisfacción.")
                 dialogo("'¡Sabía que eras listo! No te arrepentirás. Yo... noto estas cosas. Sabré cuándo tengas brazos para mí.'")
                 narrar("Recoge el brazo con una delicadeza que resulta más perturbadora que su andar animalizado.")
@@ -4139,23 +4141,22 @@ def resolver_eventos_post_combate(personaje, enemigo):
                 personaje["brazos"] += 1
             elif resp in ["n", "no"]:
                 narrar("Cuando le dices que no, no reacciona de inmediato.")
-                narrar("Parpadea lentamente.")
+                narrar("Parpadea lentamente, y puedes fijarte en las costuras y malformaciones de su cara con una claridad incómoda.")
                 narrar("Luego su rostro se afloja, como si algo dentro de él hubiese perdido tensión.")
                 dialogo("'Ah… claro.'")
                 dialogo("'Claro que no.'")
                 narrar("Se rasca el antebrazo. Ves como se hace un corte y se rompen sus uñas.")
-                dialogo("'Nadie quiere cargar con lo que sobra.'")
+                dialogo("'Nadie quiere cargar con lo que sobra.' Parece que tiembla un poco y evita mirarte.")
                 dialogo("'Es más fácil dejarlo pudrirse en las esquinas.'")
-                narrar("Se acerca, inclinando el torso hasta casi tocarte con la frente. Por reflejo echas la mano a tu arma...")
-                dialogo("'Él decía lo mismo... Que cada corte era necesario.'")
-                dialogo("'Que los restos no importaban.'")
+                narrar("Se arquea repentinamente, y te mira, pero sus ojos no muestran violencia. Por reflejo, echas la mano a tu arma...")
+                dialogo("'Él decía lo mismo... Que cada corte era necesario. Que los restos no importaban...'")
                 narrar("Su voz cambia, se vuelve más grave.")
                 dialogo("'Siempre despreciando lo que no sirve...'")
                 narrar("Se gira taciturno, y se aparta mascullando.")
                 dialogo("'No te preocupes, la piedra siempre recoge lo que se deja atrás.'")
                 dialogo("'No pasa nada. Ya los conseguiré. De un modo... u otro.'")
                 narrar("Vuelve al techo con la misma fluidez inquietante con que bajó. El chasquido se aleja.")
-                narrar("No sabes por qué, pero tienes la sensación de haber cometido un error.")
+                narrar("No te intimida ese espantajo, pero tienes la sensación de haber cometido un error.")
                 personaje["rencor"] = True
                 personaje["brazos"] += 1
             else:
@@ -4456,13 +4457,13 @@ class Vista:
 
     # --- Velocidad typewriter (ms por letra) ---
     VELOCIDAD_TYPEWRITER = {
-        "narrar":     18,
-        "dialogo":    28,  # mas lento: mas dramatico
-        "susurros":   45,  # muy lento: inquietante
-        "alerta":     10,  # casi instantaneo: urgencia
-        "exito":      20,
-        "sistema":     8,
-        "preguntar":  15,
+        "narrar":     0,
+        "dialogo":    0,  # mas lento: mas dramatico
+        "susurros":   0,  # muy lento: inquietante
+        "alerta":     0,  # casi instantaneo: urgencia
+        "exito":      0,
+        "sistema":     0,
+        "preguntar":  0,
     }
 
     def __init__(self, root):
