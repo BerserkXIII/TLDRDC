@@ -152,15 +152,15 @@ class TestCrearPersonaje:
         
         ARRANGE: Mock retorna fuerza=1 (destreza=9) y fuerza=9 (destreza=1)
         ACT: Crear dos personajes con extremos
-        ASSERT: Armaduras calculadas correctamente (4 y 0)
+        ASSERT: Armaduras calculadas correctamente (3 y 0)
         """
-        # ARRANGE - Test extremo alto (destreza 9 → armadura 4)
+        # ARRANGE - Test extremo alto (destreza 9 → armadura 3)
         with patch('TLDRDC_Prueba1.pedir_input') as mock_input:
             mock_input.side_effect = ["test1", "1"]
             p1 = crear_personaje()
         
         assert p1["destreza"] == 9
-        assert p1["armadura"] == 4
+        assert p1["armadura"] == 3
         
         # ARRANGE - Test extremo bajo (destreza 1 → armadura 0)
         with patch('TLDRDC_Prueba1.pedir_input') as mock_input:
