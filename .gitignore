@@ -65,3 +65,4 @@ htmlcov/
 # ─ Optional Development Tools
 local_settings.py
 ui_tester/
+Prueba_TKinter.py

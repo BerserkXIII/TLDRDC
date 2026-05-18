@@ -3,7 +3,8 @@
 # ════════════════════════════════════════════════════════════════════
 
 import tkinter as tk
-from .ui_config import COLORES
+from .ui_config import COLORES, CANVAS_LAYER_TAGS
+from .ui_canvas_panel import CanvasPanel
 from .ui_imagen_manager import imagen_manager
 
 # ════════════════════════════════════════════════════════════════════
@@ -17,6 +18,7 @@ class EstructuraUI:
     Enables responsive background images with overlaid widget content.
     """
     
+    # CANVAS-FIRST TODO LEGACY: remove after TLDRDC_Prueba1.py drops _reborde().
     @staticmethod
     def crear_panel_con_fondo(
         parent,
@@ -56,7 +58,12 @@ class EstructuraUI:
         frame_contenido = tk.Frame(canvas, bg=color_fondo)
         
         # Posicionar el Frame en el Canvas de forma que se redimensione
-        canvas.create_window(0, 0, window=frame_contenido, anchor="nw", tags="content")
+        canvas.create_window(
+            0, 0,
+            window=frame_contenido,
+            anchor="nw",
+            tags=("content", CANVAS_LAYER_TAGS["content"]),
+        )
         
         # Variable para guardar la imagen (evita garbage collection)
         _current_bg_image = None
@@ -77,10 +84,15 @@ class EstructuraUI:
                     if img:
                         _current_bg_image = img  # Guardar referencia para evitar GC
                         canvas.delete("background")
-                        canvas.create_image(0, 0, image=img, anchor="nw", tags="background")
-                        canvas.tag_lower("background")  # Enviar al fondo
+                        canvas.create_image(
+                            0, 0,
+                            image=img,
+                            anchor="nw",
+                            tags=("background", CANVAS_LAYER_TAGS["background"]),
+                        )
+                        canvas.tag_lower(CANVAS_LAYER_TAGS["background"])  # Enviar al fondo
                         # CRÍTICO: Asegurar que "content" (contenedor de widgets) esté encima
-                        canvas.tag_raise("content")  # Traer al frente el frame de contenido
+                        canvas.tag_raise(CANVAS_LAYER_TAGS["content"])  # Traer al frente el frame de contenido
                 except Exception as e:
                     print(f"Error redimensionando fondo {ruta_fondo}: {e}")
         
@@ -89,9 +101,11 @@ class EstructuraUI:
         # Guardar referencias útiles
         outer._canvas_fondo = canvas
         outer._frame_contenido = frame_contenido
+        outer._canvas_layer_tags = CANVAS_LAYER_TAGS
         
         return (frame_contenido, canvas, outer)
     
+    # CANVAS-FIRST TODO LEGACY: no active caller after the image panel migration.
     @staticmethod
     def crear_panel_imagen_dinamico(parent, row=0, column=0, **grid_kwargs):
         """
@@ -109,6 +123,43 @@ class EstructuraUI:
         canvas.pack(fill="both", expand=True)
         
         return (canvas, outer)
+
+    @staticmethod
+    def crear_canvas_panel(
+        parent,
+        ruta_fondo=None,
+        color_borde=COLORES["borde"],
+        color_fondo=COLORES["fondo_panel"],
+        padding=0,
+        resize_delay_ms=16,
+        row=0,
+        column=0,
+        **grid_kwargs
+    ):
+        """
+        Create a canvas-first panel host.
+
+        Returns:
+            (canvas_panel, canvas, outer_frame)
+        """
+        outer = tk.Frame(parent, bg=color_borde, padx=2, pady=2)
+        if "sticky" not in grid_kwargs:
+            grid_kwargs["sticky"] = "nsew"
+        outer.grid(row=row, column=column, **grid_kwargs)
+
+        canvas_panel = CanvasPanel(
+            outer,
+            ruta_fondo=ruta_fondo,
+            color_fondo=color_fondo,
+            padding=padding,
+            resize_delay_ms=resize_delay_ms,
+        )
+
+        outer._canvas_panel = canvas_panel
+        outer._canvas_fondo = canvas_panel.canvas
+        outer._canvas_layer_tags = CANVAS_LAYER_TAGS
+
+        return (canvas_panel, canvas_panel.canvas, outer)
 
 # ════════════════════════════════════════════════════════════════════
 # GLOBAL INSTANCE

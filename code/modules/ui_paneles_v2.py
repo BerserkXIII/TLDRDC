@@ -13,7 +13,7 @@
 # - frame_widgets: contenedor widgets (grid 0,0 - SECOND = ENCIMA)
 
 import tkinter as tk
-from .ui_config import COLORES, RUTAS_IMAGENES_PANELES
+from .ui_config import COLORES, RUTAS_IMAGENES_PANELES, CANVAS_LAYER_TAGS
 from .ui_imagen_manager import imagen_manager
 
 
@@ -70,10 +70,14 @@ class PanelConFondo:
                     self.canvas._bg_image = img
                     if self.canvas._image_id is None:
                         self.canvas._image_id = self.canvas.create_image(
-                            0, 0, image=img, anchor="nw"
+                            0, 0,
+                            image=img,
+                            anchor="nw",
+                            tags=("background", CANVAS_LAYER_TAGS["background"]),
                         )
                     else:
                         self.canvas.itemconfig(self.canvas._image_id, image=img)
+                    self.canvas.tag_lower(CANVAS_LAYER_TAGS["background"])
             except Exception:
                 pass
         

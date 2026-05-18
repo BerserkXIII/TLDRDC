@@ -64,6 +64,41 @@ class ImagenManager:
         except Exception as e:
             print(f"Error cargando imagen {ruta}: {e}")
             return None
+
+    def cargar_imagen_exacta(self, ruta, tamano):
+        """
+        Load image resized exactly to (width, height).
+
+        This is used by canvas-first panels, where the canvas owns the whole
+        visible surface and needs deterministic sizing.
+        """
+        if not ruta or not os.path.exists(ruta) or not tamano:
+            return None
+
+        ancho, alto = tamano
+        if ancho <= 0 or alto <= 0:
+            return None
+
+        ruta = str(ruta)
+        cache_key = (ruta, (ancho, alto), "exacta")
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        try:
+            if self.pil_disponible:
+                resample = getattr(Image, "Resampling", Image).LANCZOS
+                img = Image.open(ruta)
+                img = img.resize((ancho, alto), resample)
+                photo = ImageTk.PhotoImage(img)
+            else:
+                photo = tk.PhotoImage(file=ruta)
+
+            self._cache[cache_key] = photo
+            return photo
+
+        except Exception as e:
+            print(f"Error cargando imagen exacta {ruta}: {e}")
+            return None
     
     def validar_rutas(self, dict_rutas):
         """

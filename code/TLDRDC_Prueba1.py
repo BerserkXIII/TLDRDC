@@ -51,7 +51,11 @@ if not getattr(sys, 'frozen', False):
 
 # Load UI modules: colors, image manager, layout factory, reactive object.
 try:
-    from modules.ui_config import COLORES, RUTAS_IMAGENES_PANELES
+    from modules.ui_config import (
+        COLORES,
+        RUTAS_IMAGENES_PANELES,
+        CANVAS_LAYER_TAGS,
+    )
     from modules.ui_imagen_manager import imagen_manager
     from modules.ui_estructura import estructura_ui
     from modules.reactive import Personaje
@@ -59,13 +63,6 @@ try:
 except ImportError as e:
     print(f"Error: UI modules not found: {e}")
     MODULOS_DISPONIBLES = False
-
-# Import PIL for enhanced image support (JPEG, RGBA, resizing).
-try:
-    from PIL import Image, ImageTk
-    PIL_DISPONIBLE = True
-except ImportError:
-    PIL_DISPONIBLE = False
 
 # Import event system (20 procedurally generated encounters).
 try:
@@ -4417,6 +4414,7 @@ def resolver_eventos_post_combate(personaje, enemigo):
 
 # Legacy compatibility variables (previous modules):
 _IMG_BTN = {}  # Button images (loaded dynamically)
+_IMG_BTN_PATHS = {}  # Original image paths for canvas-first scaled rendering
 # Rutas de bordes eliminadas: sistema legacy nunca implementado
 # Se usaba carga de PNG para bordes decorativos (deprecado)
 
@@ -4448,6 +4446,16 @@ class Vista:
     
     ══════════════════════════════════════════════════════════════════
     """
+
+    # Public renderer API kept stable while the internals move to canvas-first.
+    PUBLIC_RENDER_API = (
+        "agregar_texto",
+        "set_imagen",
+        "actualizar_hud",
+        "actualizar_botones_combate",
+        "desactivar_botones_combate",
+        "procesar_mensaje",
+    )
 
     # --- Proporciones del layout (faciles de ajustar) ---
     PESO_COL_TEXTO   = 72
@@ -4482,6 +4490,7 @@ class Vista:
         self.root.title("TL;DR:DC")
         self.root.configure(bg=COLORES["fondo"])
         self.root.attributes("-fullscreen", True)
+        self._canvas_layer_tags = CANVAS_LAYER_TAGS
 
         # Callback que el Controlador conectara: recibe string del parser
         self.on_input = None
@@ -4504,9 +4513,9 @@ class Vista:
         # Flag: True during combat. Buttons only active in combat.
         self._en_combate = False
 
-        self._construir_layout()
-        self._configurar_tags()
         self._cargar_imgs_btns()
+        self._configurar_tags()
+        self._construir_layout()
         # _cargar_bordes_imagen() eliminada: sistema legacy de bordes PNG nunca usado
         self._iniciar_polling()
 
@@ -4526,6 +4535,8 @@ class Vista:
         self._construir_panel_imagen()
         self._construir_panel_stats_y_botones()
 
+    # CANVAS-FIRST TODO LEGACY: _reborde() is no longer used by the active UI.
+    # Remove it together with ui_estructura.crear_panel_con_fondo().
     def _reborde(self, parent, ruta_fondo=None, **grid_kwargs):
         """Create 3-layer panel (border > canvas > content frame) with optional background image."""
         # Use estructura_ui factory to create 3-layer panel
@@ -4540,71 +4551,58 @@ class Vista:
         # Mantener compatibilidad: guardar referencia al frame exterior
         frame_contenido._reborde_outer = outer
         frame_contenido._canvas_fondo_interno = canvas_fondo
+        frame_contenido._canvas_layer_tags = self._canvas_layer_tags
         
         return frame_contenido
 
-    def _construir_panel_texto(self):
-        panel = self._reborde(self.root, ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_texto"], 
-                             row=0, column=0, padx=(6, 3), pady=(6, 3))
-        self._borde_texto = panel._reborde_outer  # Guardar referencia al Frame exterior
-        panel.rowconfigure(0, weight=1)
-        panel.columnconfigure(0, weight=1)
-
-        self.texto = tk.Text(
-            panel,
-            bg=COLORES["fondo_panel"], fg=COLORES["narrar"],
-            font=("Consolas", 11),
-            wrap="word",
-            state="disabled",
-            relief="flat",
-            padx=12, pady=8,
-            cursor="arrow",
-            spacing3=4,
-            height=1,              # elimina el minimo natural; el grid controla el tamano
-            yscrollcommand=lambda *a: None,
+    def _crear_canvas_panel(self, parent, ruta_fondo=None, padding=0, resize_delay_ms=16, **grid_kwargs):
+        """Create a canvas-first panel host without changing the legacy panels."""
+        canvas_panel, canvas, outer = estructura_ui.crear_canvas_panel(
+            parent,
+            ruta_fondo=ruta_fondo,
+            color_borde=COLORES["borde"],
+            color_fondo=COLORES["fondo_panel"],
+            padding=padding,
+            resize_delay_ms=resize_delay_ms,
+            **grid_kwargs
         )
-        self.texto.grid(row=0, column=0, sticky="nsew")
+
+        canvas_panel._reborde_outer = outer
+        canvas_panel._canvas_fondo_interno = canvas
+        canvas_panel._canvas_layer_tags = self._canvas_layer_tags
+
+        return canvas_panel
+
+    def _construir_panel_texto(self):
+        panel = self._crear_canvas_panel(
+            self.root,
+            ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_texto"],
+            padding=(14, 10, 14, 10),
+            row=0, column=0,
+            padx=(6, 3), pady=(6, 3),
+        )
+        self._panel_texto_canvas = panel
+        self._borde_texto = panel._reborde_outer
+        self._texto_lineas = []
+        self._texto_parcial = None
+        panel.add_resize_callback(lambda _panel: self._render_texto_canvas())
 
     def _construir_panel_parser(self):
-        """Build parser panel: history display (Text) + input field (Entry)."""
-        panel = self._reborde(self.root, ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_parser"],
-                             row=1, column=0, padx=(6, 3), pady=(3, 6))
-        self._borde_parser = panel._reborde_outer  # Guardar referencia al Frame exterior
-        panel.rowconfigure(0, weight=1)   # registro ocupa el espacio sobrante
-        panel.rowconfigure(1, weight=0)   # entry: altura fija
-        panel.columnconfigure(0, weight=1)
-
-        # --- Registro de historial ---
-        self.parser_registro = tk.Text(
-            panel,
-            bg=COLORES["parser_bg"], fg=COLORES["parser_fg"],
-            font=("Consolas", 10),
-            wrap="word",
-            state="disabled",
-            relief="flat",
-            padx=10, pady=6,
-            cursor="arrow",
-            spacing3=3,
-            height=1,              # elimina el minimo natural; el grid controla el tamano
-            yscrollcommand=lambda *a: None,
+        """Build parser panel: canvas history + real Entry for keyboard input."""
+        panel = self._crear_canvas_panel(
+            self.root,
+            ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_parser"],
+            padding=(10, 8, 10, 44),
+            row=1, column=0,
+            padx=(6, 3), pady=(3, 6),
         )
-        self.parser_registro.grid(row=0, column=0, sticky="nsew")
-        # Tag para los comandos del jugador (en rojo claro, diferenciados)
-        self.parser_registro.tag_configure(
-            "cmd", foreground=COLORES["alerta"], font=("Consolas", 10, "bold")
-        )
-        self.parser_registro.tag_configure(
-            "resp", foreground=COLORES["parser_fg"], font=("Consolas", 10)
-        )
-
-        # --- Separador visual (linea fina) ---
-        tk.Frame(panel, bg=COLORES["borde"], height=1).grid(
-            row=1, column=0, sticky="ew", pady=(0, 0)
-        )
+        self._panel_parser_canvas = panel
+        self._borde_parser = panel._reborde_outer
+        self._parser_log_lineas = []
+        self._parser_entry_height = 38
 
         # --- Frame de entrada con prompt > ---
-        frame_entry = tk.Frame(panel, bg=COLORES["parser_bg"])
-        frame_entry.grid(row=2, column=0, sticky="ew")
+        frame_entry = tk.Frame(panel.canvas, bg=COLORES["parser_bg"])
         frame_entry.columnconfigure(1, weight=1)
 
         tk.Label(
@@ -4629,7 +4627,183 @@ class Vista:
         self.parser_entry.bind("<Down>",   self._historial_abajo)
         self.parser_entry.focus_set()
 
+        self._parser_entry_window = panel.canvas.create_window(
+            0, 0,
+            window=frame_entry,
+            anchor="sw",
+            tags=("parser_entry", self._canvas_layer_tags["fx"]),
+        )
+        panel.add_resize_callback(lambda _panel: self._layout_parser_canvas())
+        self.root.after(10, self._layout_parser_canvas)
+
+    def _font(self, font_spec):
+        """Return a Tk font object for measuring canvas text."""
+        return tkfont.Font(root=self.root, font=font_spec)
+
+    def _wrap_canvas_text(self, text, font_spec, max_width):
+        """Wrap text by pixel width for canvas rendering."""
+        font = self._font(font_spec)
+        wrapped = []
+        for paragraph in str(text).split("\n"):
+            if paragraph == "":
+                wrapped.append("")
+                continue
+            line = ""
+            for word in paragraph.split(" "):
+                candidate = word if not line else f"{line} {word}"
+                if font.measure(candidate) <= max_width:
+                    line = candidate
+                    continue
+                if line:
+                    wrapped.append(line)
+                    line = word
+                else:
+                    wrapped.append(word)
+                    line = ""
+            if line:
+                wrapped.append(line)
+        return wrapped or [""]
+
+    def _render_texto_canvas(self):
+        """Render narrative log into the text canvas, autoscrolled to the bottom."""
+        if not getattr(self, "_panel_texto_canvas", None):
+            return
+        panel = self._panel_texto_canvas
+        canvas = panel.canvas
+        canvas.delete("texto_log")
+
+        x, y, width, height = panel.content_bounds()
+        entradas = list(self._texto_lineas)
+        if self._texto_parcial:
+            entradas.append(self._texto_parcial)
+
+        visuales = []
+        for entrada in entradas:
+            style = self._texto_estilos.get(entrada["tag"], self._texto_estilos["narrar"])
+            font_spec = style["font"]
+            line_height = self._font(font_spec).metrics("linespace") + style.get("spacing", 4)
+            for wrapped in self._wrap_canvas_text(entrada["text"], font_spec, width):
+                visuales.append((wrapped, entrada["tag"], line_height))
+
+        visibles = []
+        alto_usado = 0
+        for item in reversed(visuales):
+            if alto_usado + item[2] > height and visibles:
+                break
+            visibles.append(item)
+            alto_usado += item[2]
+        visibles.reverse()
+
+        cursor_y = y + max(height - alto_usado, 0)
+        for idx, (linea, tag, line_height) in enumerate(visibles):
+            style = self._texto_estilos.get(tag, self._texto_estilos["narrar"])
+            justify = style.get("justify", "left")
+            anchor = "n" if justify == "center" else "nw"
+            text_x = x + (width // 2) if justify == "center" else x
+            canvas.create_text(
+                text_x,
+                cursor_y,
+                text=linea,
+                fill=style["fill"],
+                font=style["font"],
+                anchor=anchor,
+                width=width,
+                tags=(self._canvas_layer_tags["content"], "texto_log", f"texto_linea_{idx}"),
+            )
+            cursor_y += line_height
+
+    def _layout_parser_canvas(self):
+        """Position parser Entry and redraw the canvas log."""
+        if not getattr(self, "_panel_parser_canvas", None):
+            return
+        panel = self._panel_parser_canvas
+        width, height = panel.size()
+        if width < 20 or height < 20:
+            return
+        panel.canvas.coords(self._parser_entry_window, 0, height)
+        panel.canvas.itemconfig(
+            self._parser_entry_window,
+            width=width,
+            height=self._parser_entry_height,
+        )
+        self._render_parser_log_canvas()
+
+    def _render_parser_log_canvas(self):
+        """Render parser history above the real Entry."""
+        if not getattr(self, "_panel_parser_canvas", None):
+            return
+        panel = self._panel_parser_canvas
+        canvas = panel.canvas
+        canvas.delete("parser_log")
+
+        width, height = panel.size()
+        if width < 20 or height < 20:
+            return
+
+        left = 10
+        top = 8
+        log_width = max(width - 20, 1)
+        log_height = max(height - self._parser_entry_height - 12, 1)
+        canvas.create_line(
+            0,
+            height - self._parser_entry_height - 1,
+            width,
+            height - self._parser_entry_height - 1,
+            fill=COLORES["borde"],
+            tags=(self._canvas_layer_tags["content"], "parser_log"),
+        )
+
+        visuales = []
+        for entrada in self._parser_log_lineas:
+            style = self._parser_estilos.get(entrada["tag"], self._parser_estilos["resp"])
+            font_spec = style["font"]
+            line_height = self._font(font_spec).metrics("linespace") + 3
+            for wrapped in self._wrap_canvas_text(entrada["text"], font_spec, log_width):
+                visuales.append((wrapped, entrada["tag"], line_height))
+
+        visibles = []
+        alto_usado = 0
+        for item in reversed(visuales):
+            if alto_usado + item[2] > log_height and visibles:
+                break
+            visibles.append(item)
+            alto_usado += item[2]
+        visibles.reverse()
+
+        cursor_y = top + max(log_height - alto_usado, 0)
+        for idx, (linea, tag, line_height) in enumerate(visibles):
+            style = self._parser_estilos.get(tag, self._parser_estilos["resp"])
+            canvas.create_text(
+                left,
+                cursor_y,
+                text=linea,
+                fill=style["fill"],
+                font=style["font"],
+                anchor="nw",
+                width=log_width,
+                tags=(self._canvas_layer_tags["content"], "parser_log", f"parser_linea_{idx}"),
+            )
+            cursor_y += line_height
+        canvas.tag_raise(self._canvas_layer_tags["fx"])
+
     def _construir_panel_imagen(self):
+        self._panel_imagen_canvas = None
+        self._ruta_imagen_actual = None
+
+        # Canvas-first active path. CANVAS-FIRST TODO LEGACY: remove the unreachable fallback below.
+        if True:
+            panel_canvas = self._crear_canvas_panel(
+                self.root,
+                ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_imagen"],
+                row=0, column=1,
+                padx=(3, 6), pady=(6, 3),
+            )
+            self._panel_imagen_canvas = panel_canvas
+            self._borde_imagen = panel_canvas._reborde_outer
+            self.canvas_imagen = panel_canvas.canvas
+            panel_canvas.add_resize_callback(lambda _panel: self._cargar_imagen())
+            return
+
         panel = self._reborde(self.root, ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_imagen"],
                              row=0, column=1, padx=(3, 6), pady=(6, 3))
         self._borde_imagen = panel._reborde_outer  # Guardar referencia al Frame exterior
@@ -4645,18 +4819,238 @@ class Vista:
 
     def _construir_panel_stats_y_botones(self):
         """Build right panel: stats strip (top) and fixed-size button grid (bottom)."""
-        panel = self._reborde(self.root, ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_stats"],
-                             row=1, column=1, padx=(3, 6), pady=(3, 6))
-        self._borde_panel_derecho = panel._reborde_outer  # Guardar referencia al Frame exterior
+        panel = self._crear_canvas_panel(
+            self.root,
+            ruta_fondo=RUTAS_IMAGENES_PANELES["fondo_stats"],
+            row=1, column=1,
+            padx=(3, 6), pady=(3, 6),
+        )
+        self._panel_botones_canvas = panel
+        self._borde_panel_derecho = panel._reborde_outer
         self._panel_derecho = panel  # Guardar referencia al panel interior (para fondo dinámico)
         
-        panel.rowconfigure(0, weight=0)   # stats: fija
-        panel.rowconfigure(1, weight=1)  # botones: FLEXIBLE - usa todo el espacio sobrante
-        panel.columnconfigure(0, weight=1)
+        self._hud_state = {
+            "vida": "--",
+            "vida_color": COLORES["stats_vida"],
+            "armadura": "--",
+            "fuerza": "--",
+            "destreza": "--",
+        }
+        self._crear_estado_botones_canvas()
 
-        self._construir_stats_strip(panel)
-        self._construir_area_botones(panel)
+        panel.add_resize_callback(lambda _panel: self._dibujar_panel_stats_botones())
+        self.root.after(10, self._dibujar_panel_stats_botones)
 
+    def _crear_estado_botones_canvas(self):
+        """Create logical button state for the canvas-first combat panel."""
+        self._botones_armas = {}
+        self._botones_stances = {}
+        self._botones_acciones = {}
+        self._toggle_state = {}
+
+        def _state(key, texto="", imagen=None, imagen_fondo=None, command=None):
+            return {
+                "key": key,
+                "texto": texto,
+                "fallback": texto,
+                "imagen": imagen,
+                "imagen_fondo": imagen_fondo,
+                "activo": False,
+                "clickable": False,
+                "selected": False,
+                "command": command,
+            }
+
+        self._botones_stances["bloquear"] = _state(
+            "stance_bloquear", "BL", "bloqueo", command=lambda: self._seleccionar_stance("bl")
+        )
+        self._botones_stances["esquivar"] = _state(
+            "stance_esquivar", "ESQ", "esquiva", command=lambda: self._seleccionar_stance("esq")
+        )
+
+        for slot_name in ("arma1", "arma2", "arma3"):
+            self._botones_armas[slot_name] = _state(
+                slot_name, "", imagen_fondo=None
+            )
+
+        self._botones_acciones["pocion"] = _state(
+            "accion_pocion", "P", "0pociones", command=lambda: self._enviar_comando("p")
+        )
+        self._botones_acciones["huir"] = _state(
+            "accion_huir", "H", "huida", command=lambda: self._enviar_comando("h")
+        )
+
+    def _dibujar_panel_stats_botones(self):
+        """Redraw stats and combat controls in the right-bottom canvas."""
+        if not getattr(self, "_panel_botones_canvas", None):
+            return
+        panel = self._panel_botones_canvas
+        ancho, alto = panel.size()
+        if ancho < 20 or alto < 20:
+            return
+
+        panel.clear_layer("content")
+        panel.clear_layer("fx")
+        self._dibujar_stats_canvas()
+        self._dibujar_botones_canvas()
+
+    def _dibujar_stats_canvas(self):
+        """Draw HUD strip in the canvas-first combat panel."""
+        panel = self._panel_botones_canvas
+        ancho, _alto = panel.size()
+        margen = 8
+        y = 6
+        h = self.ALTO_STATS
+
+        panel.draw_rect(
+            "stats_bg",
+            margen, y,
+            max(ancho - margen * 2, 1), h,
+            fill=COLORES["fondo_panel"],
+            outline="",
+        )
+        vida_w = max(int(ancho * 0.50), 120)
+        panel.draw_text_block(
+            "stats_vida",
+            self._hud_state["vida"],
+            x=margen + 8, y=y + 6,
+            width=vida_w,
+            fill=self._hud_state["vida_color"],
+            font=("Consolas", 11),
+        )
+        panel.draw_text_block(
+            "stats_armadura",
+            self._hud_state["armadura"],
+            x=max(int(ancho * 0.55), margen + vida_w), y=y + 6,
+            width=58,
+            fill=COLORES["stats_fg"],
+            font=("Consolas", 11),
+        )
+        panel.draw_text_block(
+            "stats_fuerza",
+            self._hud_state["fuerza"],
+            x=max(int(ancho * 0.70), margen + vida_w + 58), y=y + 6,
+            width=44,
+            fill=COLORES["stats_fg"],
+            font=("Consolas", 11),
+        )
+        panel.draw_text_block(
+            "stats_destreza",
+            self._hud_state["destreza"],
+            x=max(int(ancho * 0.82), margen + vida_w + 102), y=y + 6,
+            width=44,
+            fill=COLORES["stats_fg"],
+            font=("Consolas", 11),
+        )
+        panel.draw_sprite_button(
+            "stats_cerrar",
+            max(ancho - 32, margen), y + 3,
+            22, 22,
+            text="X",
+            command=self.root.destroy,
+            active=True,
+            background_outline="#5a3030",
+            font=("Consolas", 10, "bold"),
+            fill="#5a3030",
+        )
+
+    def _dibujar_botones_canvas(self):
+        """Draw stance, weapon and action buttons in a 5x3 canvas grid."""
+        panel = self._panel_botones_canvas
+        ancho, alto = panel.size()
+        margen_x = 10
+        margen_bottom = 8
+        top = self.ALTO_STATS + 16
+        gap_x = 6
+        gap_y = 6
+        usable_w = max(ancho - margen_x * 2 - gap_x * 4, 1)
+        usable_h = max(alto - top - margen_bottom - gap_y * 2, 1)
+        cell_w = usable_w / 5
+        cell_h = usable_h / 3
+
+        posiciones = [
+            (self._botones_stances["bloquear"], 1, 0),
+            (self._botones_stances["esquivar"], 3, 0),
+            (self._botones_armas["arma1"], 1, 1),
+            (self._botones_armas["arma2"], 2, 1),
+            (self._botones_armas["arma3"], 3, 1),
+            (self._botones_acciones["pocion"], 1, 2),
+            (self._botones_acciones["huir"], 3, 2),
+        ]
+        for state, col, row in posiciones:
+            x = int(margen_x + col * (cell_w + gap_x))
+            y = int(top + row * (cell_h + gap_y))
+            self._dibujar_boton_canvas(state, x, y, int(cell_w), int(cell_h))
+
+    def _dibujar_boton_canvas(self, state, x, y, width, height):
+        """Draw one logical button state."""
+        panel = self._panel_botones_canvas
+        image = self._sprite_boton_escalado(state.get("imagen"), width, height)
+        bg_image = self._sprite_boton_escalado(state.get("imagen_fondo"), width, height, cover=True)
+        text = "" if image else state.get("fallback", "")
+        clickable = bool(state.get("clickable"))
+        if not image and not bg_image and not text and not state.get("activo"):
+            return
+        if state.get("selected"):
+            outline = COLORES["boton_activo"]
+        elif clickable:
+            outline = "#4a2424"
+        else:
+            outline = "#181111"
+
+        panel.draw_sprite_button(
+            state["key"],
+            x, y,
+            max(width, 1), max(height, 1),
+            image=image,
+            text=text,
+            command=state.get("command"),
+            active=clickable,
+            background_outline=outline,
+            background_image=bg_image,
+            font=self.BTN_FONT,
+        )
+        if not clickable:
+            panel.draw_rect(
+                f"{state['key']}_disabled",
+                x, y,
+                max(width, 1), max(height, 1),
+                fill="#000000",
+                outline="",
+                stipple="gray50",
+                layer="fx",
+            )
+
+    def _sprite_boton_escalado(self, nombre, width, height, cover=False):
+        """Return a button sprite scaled to the current regular cell."""
+        if not nombre:
+            return None
+        ruta = _IMG_BTN_PATHS.get(nombre)
+        if not ruta:
+            return _IMG_BTN.get(nombre)
+        if cover:
+            target_w = max(width, 1)
+            target_h = max(height, 1)
+        else:
+            target_w = max(int(width * 0.78), 1)
+            target_h = max(int(height * 0.78), 1)
+        return imagen_manager.cargar_imagen_exacta(ruta, (target_w, target_h))
+
+    def _seleccionar_stance(self, cual):
+        """Toggle stance from canvas button clicks."""
+        if not self._en_combate:
+            return
+        if self._toggle_state.get("activa") == cual:
+            self._toggle_state["activa"] = None
+        else:
+            self._toggle_state["activa"] = cual
+        self._actualizar_stances_visual()
+        if self.on_input:
+            self.on_input(cual)
+
+    # CANVAS-FIRST TODO LEGACY: old widget-based stats/buttons builders below
+    # are unused. Remove _construir_stats_strip(), _construir_area_botones(),
+    # and _boton() when doing the cleanup pass.
     def _construir_stats_strip(self, parent):
         """Build persistent HP/armor/stats display strip (fixed height)."""
         strip = tk.Frame(parent, bg=COLORES["fondo_panel"], height=self.ALTO_STATS)
@@ -4787,8 +5181,7 @@ class Vista:
         # CRITICAL: Ejecutar _dibujar() con root.after() para que el Canvas tenga geometría real
         def _forzar_redraw():
             for cvs in todos_los_canvas:
-                if hasattr(cvs, '_dibujar'):
-                    cvs._dibujar()
+                self._forzar_redraw_botones()
         
         self.root.after(10, _forzar_redraw)
 
@@ -4829,17 +5222,16 @@ class Vista:
     def _on_pociones_cambio(self, num_pociones):
         """Update potion button sprite based on available count (0-10)."""
         if "pocion" in self._botones_acciones:
-            cvs = self._botones_acciones["pocion"]
+            btn = self._botones_acciones["pocion"]
             # Limitar a 0-10 (máximo disponible)
             num_pociones = min(max(num_pociones, 0), 10)
             # Cambiar la imagen dinámicamente según cantidad de pociones
             nombre_imagen = f"{num_pociones}pociones"
-            cvs._btn_imagen = nombre_imagen
+            btn["imagen"] = nombre_imagen
             # Marcar como activo si hay pociones disponibles
-            cvs._btn_activo = (num_pociones > 0)
-            # Forzar redibujado del canvas
-            if hasattr(cvs, '_dibujar'):
-                cvs._dibujar()
+            btn["activo"] = (num_pociones > 0)
+            btn["clickable"] = self._en_combate and (num_pociones > 0)
+            self._forzar_redraw_botones()
     
     def _on_armas_cambio(self):
         """Update weapon button sprites when inventory changes (only sprites, no text)."""
@@ -4852,37 +5244,43 @@ class Vista:
         for i, arma_nombre in enumerate(slots):
             slot_name = ['arma1', 'arma2', 'arma3'][i]
             if slot_name in self._botones_armas:
-                cvs = self._botones_armas[slot_name]
+                btn = self._botones_armas[slot_name]
                 tiene = arma_nombre != "----"
                 
                 # Actualizar estado e imagen
-                cvs._btn_texto = ""  # NO mostrar nombres en los botones
-                cvs._btn_activo = tiene
+                btn["texto"] = ""
+                btn["fallback"] = arma_nombre if tiene else ""
+                btn["activo"] = tiene
+                btn["clickable"] = self._en_combate and tiene
+                btn["imagen_fondo"] = "fondo_armas" if tiene else None
+                btn["command"] = (
+                    (lambda a=arma_nombre: self._enviar_comando(a))
+                    if tiene else None
+                )
                 
                 if tiene:
                     # Intentar asignar imagen del arma
                     # Primero intenta el nombre de display, luego el sprite name
                     if arma_nombre in _IMG_BTN:
-                        cvs._btn_imagen = arma_nombre
+                        btn["imagen"] = arma_nombre
                     else:
                         # Fallback: buscar en el mapeo inverso
                         sprite_name = _ARMAS_DISPLAY_A_SPRITE.get(arma_nombre)
                         if sprite_name and sprite_name in _IMG_BTN:
-                            cvs._btn_imagen = sprite_name
+                            btn["imagen"] = sprite_name
                         else:
                             # Última opción: probar si existe como lowercase
                             lowercase_name = arma_nombre.lower()
                             if lowercase_name in _IMG_BTN:
-                                cvs._btn_imagen = lowercase_name
+                                btn["imagen"] = lowercase_name
                             else:
                                 # No encontrada, dejar vacío
-                                cvs._btn_imagen = None
+                                btn["imagen"] = None
                 else:
-                    cvs._btn_imagen = None
+                    btn["imagen"] = None
                 
                 # Forzar redibujado
-                if hasattr(cvs, '_dibujar'):
-                    cvs._dibujar()
+                self._forzar_redraw_botones()
 
     def actualizar_hud(self, d):
         """Update stats strip labels (HP, armor, strength, dexterity)."""
@@ -4895,10 +5293,12 @@ class Vista:
         corazones  = self.VIDA_LLENA * vida + self.VIDA_VACIA * (vida_max - vida)
         vida_color = COLORES["alerta"] if vida / max(vida_max, 1) < 0.3 else COLORES["stats_vida"]
 
-        self._stats_labels["vida"].configure(text=corazones, fg=vida_color)
-        self._stats_labels["armadura"].configure(text=f"\u26e8 {armadura}")
-        self._stats_labels["fuerza"].configure(text=f"F:{fuerza}")
-        self._stats_labels["destreza"].configure(text=f"D:{destreza}")
+        self._hud_state["vida"] = corazones
+        self._hud_state["vida_color"] = vida_color
+        self._hud_state["armadura"] = f"\u26e8 {armadura}"
+        self._hud_state["fuerza"] = f"F:{fuerza}"
+        self._hud_state["destreza"] = f"D:{destreza}"
+        self._dibujar_panel_stats_botones()
 
     # ------------------------------------------------------------------
     # BOTONES CONTEXTUALES
@@ -4923,6 +5323,7 @@ class Vista:
             img = imagen_manager.cargar_imagen(str(ruta))
             if img:
                 _IMG_BTN[nombre] = img
+                _IMG_BTN_PATHS[nombre] = str(ruta)
         
         # Cargar sprites dinámicos de pociones (0-10)
         pociones_base = pathlib.Path(resource_path(os.path.join("images", "panel botones", "pociones")))
@@ -4932,6 +5333,7 @@ class Vista:
             img = imagen_manager.cargar_imagen(str(ruta))
             if img:
                 _IMG_BTN[nombre] = img
+                _IMG_BTN_PATHS[nombre] = str(ruta)
         
         # Cargar sprites de stances (bloqueo y esquiva)
         stances_base = pathlib.Path(resource_path(os.path.join("images", "panel botones", "stances")))
@@ -4940,6 +5342,7 @@ class Vista:
             img = imagen_manager.cargar_imagen(str(ruta))
             if img:
                 _IMG_BTN[nombre] = img
+                _IMG_BTN_PATHS[nombre] = str(ruta)
         
         # Cargar sprites de armas dinámicamente desde carpeta
         armas_base = pathlib.Path(resource_path(os.path.join("images", "panel botones", "armas")))
@@ -4950,10 +5353,12 @@ class Vista:
                 if img:
                     # Guardar bajo AMBOS nombres (sprite file y display name)
                     _IMG_BTN[nombre_sprite] = img
+                    _IMG_BTN_PATHS[nombre_sprite] = str(archivo_png)
                     
                     for display_name, sprite_name in _ARMAS_DISPLAY_A_SPRITE.items():
                         if sprite_name == nombre_sprite:
                             _IMG_BTN[display_name] = img
+                            _IMG_BTN_PATHS[display_name] = str(archivo_png)
                             break
         
         # Cargar imagen de fondo para botones de armas
@@ -4962,6 +5367,7 @@ class Vista:
             img_fondo = imagen_manager.cargar_imagen(str(fondo_armas_path))
             if img_fondo:
                 _IMG_BTN["fondo_armas"] = img_fondo
+                _IMG_BTN_PATHS["fondo_armas"] = str(fondo_armas_path)
         
         # Cargar imagen de acciones (huida)
         huida_path = pathlib.Path(resource_path(os.path.join("images", "panel botones", "huida", "huida.png")))
@@ -4969,6 +5375,7 @@ class Vista:
             img_huida = imagen_manager.cargar_imagen(str(huida_path))
             if img_huida:
                 _IMG_BTN["huida"] = img_huida
+                _IMG_BTN_PATHS["huida"] = str(huida_path)
 
     # ELIMINADO: _cargar_bordes_imagen() y _aplicar_borde_imagen()
     # Sistema legacy de decoración PNG para bordes nunca fue implementado completamente.
@@ -5031,6 +5438,14 @@ class Vista:
     def desactivar_botones_combate(self):
         """Disable all combat buttons and restore weapon sprites on combat exit."""
         self._en_combate = False
+        self._toggle_state['activa'] = None
+        for btn in self._botones_stances.values():
+            btn["activo"] = False
+            btn["clickable"] = False
+            btn["selected"] = False
+        for btn in self._botones_acciones.values():
+            btn["activo"] = False
+            btn["clickable"] = False
         
         # CRÍTICO: Restaurar sprites de armas después de salir del combate
         # En combate se mostró solo nombres (imagen=None), aquí hay que restaurar
@@ -5039,37 +5454,28 @@ class Vista:
         # Forzar redibujado de todos los botones para que se vuelvan grises
         self._forzar_redraw_botones()
     
-    def _redibujar_boton(self, cvs, texto, activo=True):
+    def _redibujar_boton(self, btn, texto, activo=True):
         """Update button state and redraw without recreating widget."""
-        cvs._btn_texto = texto
-        cvs._btn_activo = activo
-        cvs.configure(cursor="hand2" if activo else "arrow")
-        cvs._dibujar()
+        btn["texto"] = texto
+        btn["fallback"] = texto
+        btn["activo"] = activo
+        btn["clickable"] = activo
+        self._forzar_redraw_botones()
     
     def _forzar_redraw_botones(self):
         """Redraw all combat buttons (used when active state changes)."""
-        todos_los_botones = (list(self._botones_stances.values()) +
-                            list(self._botones_armas.values()) +
-                            list(self._botones_acciones.values()))
-        for cvs in todos_los_botones:
-            if hasattr(cvs, '_dibujar'):
-                cvs._dibujar()
+        self._dibujar_panel_stats_botones()
     
     def _actualizar_stances_visual(self):
         """Redraw stance buttons based on current toggle state."""
         activa = self._toggle_state.get('activa')
         
-        bl_activo = (activa == 'bl')
-        esq_activo = (activa == 'esq')
-        
-        self._redibujar_boton(
-            self._botones_stances['bloquear'],
-            "", bl_activo,
-        )
-        self._redibujar_boton(
-            self._botones_stances['esquivar'],
-            "", esq_activo,
-        )
+        self._botones_stances['bloquear']["selected"] = (activa == 'bl')
+        self._botones_stances['esquivar']["selected"] = (activa == 'esq')
+        for btn in self._botones_stances.values():
+            btn["activo"] = self._en_combate
+            btn["clickable"] = self._en_combate
+        self._forzar_redraw_botones()
     
     def actualizar_botones_combate(self, armas, pociones, huida_bloqueada=False, pocion_usada_turno=False, stance=None):
         """Update combat button states without recreating; activate buttons for combat."""
@@ -5087,42 +5493,42 @@ class Vista:
         slots = (list(armas) + ["----"] * 3)[:3]
         for i, arma in enumerate(slots):
             slot_name = ['arma1', 'arma2', 'arma3'][i]
-            cvs = self._botones_armas[slot_name]
+            btn = self._botones_armas[slot_name]
             tiene = arma != "----"
             
             # En exploración se muestran SOLO sprites (sin texto)
             # En combate se muestran SPRITES (conservar imagen, sin texto)
-            cvs._btn_texto = ""  # NO mostrar nombres/descripciones
-            cvs._btn_activo = tiene
+            btn["texto"] = ""
+            btn["fallback"] = arma if tiene else ""
+            btn["activo"] = tiene
+            btn["clickable"] = self._en_combate and tiene
+            btn["imagen_fondo"] = "fondo_armas" if tiene else None
             
             # Mantener y asignar imagen del arma (no eliminar)
             if tiene:
                 if arma in _IMG_BTN:
-                    cvs._btn_imagen = arma
+                    btn["imagen"] = arma
                 else:
                     # Fallback: buscar en el mapeo
                     sprite_name = _ARMAS_DISPLAY_A_SPRITE.get(arma)
                     if sprite_name and sprite_name in _IMG_BTN:
-                        cvs._btn_imagen = sprite_name
+                        btn["imagen"] = sprite_name
                     else:
                         lowercase_name = arma.lower()
                         if lowercase_name in _IMG_BTN:
-                            cvs._btn_imagen = lowercase_name
+                            btn["imagen"] = lowercase_name
                         else:
-                            cvs._btn_imagen = None
+                            btn["imagen"] = None
             else:
-                cvs._btn_imagen = None
+                btn["imagen"] = None
             
             # Redibuja para aplicar cambio
-            if hasattr(cvs, '_dibujar'):
-                cvs._dibujar()
+            btn["command"] = (
+                (lambda a=arma: self._enviar_comando(a))
+                if tiene else None
+            )
             
             # Re-asignar comando si cambió
-            if tiene:
-                cmd = (lambda a: lambda: self._enviar_comando(a) if self._en_combate else None)(arma)
-                cvs.bind("<Button-1>", lambda e, c=cmd: c())
-            else:
-                cvs.bind("<Button-1>", lambda e: None)
         
         # --- Actualizar STANCES (fila 1) ---
         # El estado se mantiene en _toggle_state, actualizar visualmente
@@ -5141,24 +5547,22 @@ class Vista:
         
         # --- Actualizar ACCIONES (fila 2) ---
         # Poción: desactivar si no hay pociones disponibles O ya se usó una en este turno
-        cvs_pocion = self._botones_acciones['pocion']
+        btn_pocion = self._botones_acciones['pocion']
         tiene_pocion = (pociones > 0) and not pocion_usada_turno
         self._redibujar_boton(
-            cvs_pocion, "", tiene_pocion,
+            btn_pocion, "P", tiene_pocion,
         )
-        if tiene_pocion:
-            cvs_pocion.bind("<Button-1>", lambda e: self._enviar_comando("p") if self._en_combate else None)
-        else:
-            cvs_pocion.bind("<Button-1>", lambda e: None)
+        btn_pocion["imagen"] = f"{min(max(pociones, 0), 10)}pociones"
+        btn_pocion["command"] = lambda: self._enviar_comando("p")
         
         # Huir
-        cvs_huir = self._botones_acciones['huir']
+        btn_huir = self._botones_acciones['huir']
         puede_huir = not huida_bloqueada
-        self._redibujar_boton(cvs_huir, puede_huir)
+        self._redibujar_boton(btn_huir, "H", puede_huir)
+        btn_huir["command"] = lambda: self._enviar_comando("h")
         
         # Si acábamos de entrar en combate, forzar redraw para pasar de gris a activo
-        if estaba_inactivo:
-            self._forzar_redraw_botones()
+        self._forzar_redraw_botones()
 
     # mostrar_botones_explorar() y mostrar_botones_evento() eliminadas (funciones vacías deprecadas)
 
@@ -5175,6 +5579,11 @@ class Vista:
         """Load registered image scaled to current canvas size (auto-called on <Configure>)."""
         if not self._ruta_imagen_actual:
             return
+        if self._panel_imagen_canvas:
+            self._cargar_imagen_canvas_first()
+            return
+        # CANVAS-FIRST TODO LEGACY: old direct tk/PIL image fallback below is unreachable.
+        return
         w = self.canvas_imagen.winfo_width()
         h = self.canvas_imagen.winfo_height()
         if w < 10 or h < 10:
@@ -5191,6 +5600,13 @@ class Vista:
         except Exception as e:
             pass  # sistema(f"No se pudo cargar imagen: {e}")
 
+    def _cargar_imagen_canvas_first(self):
+        """Draw current situational image through the canvas-first panel."""
+        panel = self._panel_imagen_canvas
+        if not panel:
+            return
+        panel.draw_full_image_path("imagen_situacional", self._ruta_imagen_actual)
+
     # ELIMINADO: _cargar_fondo_panel_derecho() - Legacy system nunca implementado.
     # Variables _RUTA_FONDO_PANEL_DERECHO siempre fueron None.
 
@@ -5206,10 +5622,10 @@ class Vista:
 
     def _log_parser(self, texto, tag="cmd"):
         """Append line to parser history (terminal-style echo)."""
-        self.parser_registro.configure(state="normal")
-        self.parser_registro.insert("end", texto + "\n", tag)
-        self.parser_registro.see("end")
-        self.parser_registro.configure(state="disabled")
+        self._parser_log_lineas.append({"text": texto, "tag": tag})
+        if len(self._parser_log_lineas) > 200:
+            self._parser_log_lineas = self._parser_log_lineas[-200:]
+        self._render_parser_log_canvas()
 
     def _enviar_input(self, event=None):
         if not self._input_activo:
@@ -5281,26 +5697,31 @@ class Vista:
     # ------------------------------------------------------------------
 
     def _configurar_tags(self):
-        self.texto.tag_configure(
-            "narrar",    foreground=COLORES["narrar"],    font=("Consolas", 11, "italic"))
-        self.texto.tag_configure(
-            "alerta",    foreground=COLORES["alerta"],    font=("Consolas", 11, "bold"))
-        self.texto.tag_configure(
-            "exito",     foreground=COLORES["exito"],     font=("Consolas", 11, "bold"))
-        self.texto.tag_configure(
-            "sistema",   foreground=COLORES["sistema"],   font=("Consolas", 11))
-        self.texto.tag_configure(
-            "dialogo",   foreground=COLORES["dialogo"],   font=("Consolas", 12, "bold"))
-        self.texto.tag_configure(
-            "susurros",  foreground=COLORES["susurros"],  font=("Consolas", 10, "italic"))
-        self.texto.tag_configure(
-            "preguntar", foreground=COLORES["preguntar"], font=("Consolas", 11, "bold"))
-        self.texto.tag_configure(
-            "elegiste",  foreground=COLORES["preguntar"], font=("Consolas", 11, "italic"))
-        self.texto.tag_configure(
-            "titulo",    foreground=COLORES["titulo"],    font=("Consolas", 12, "bold"))
-        self.texto.tag_configure(
-            "separador", foreground=COLORES["separador"], font=("Consolas", 10))
+        self._texto_estilos = {
+            "narrar": {"fill": COLORES["narrar"], "font": ("Consolas", 11, "italic")},
+            "alerta": {"fill": COLORES["alerta"], "font": ("Consolas", 11, "bold")},
+            "exito": {"fill": COLORES["exito"], "font": ("Consolas", 11, "bold")},
+            "sistema": {"fill": COLORES["sistema"], "font": ("Consolas", 11)},
+            "dialogo": {"fill": COLORES["dialogo"], "font": ("Consolas", 12, "bold")},
+            "susurros": {"fill": COLORES["susurros"], "font": ("Consolas", 10, "italic")},
+            "preguntar": {"fill": COLORES["preguntar"], "font": ("Consolas", 11, "bold")},
+            "elegiste": {"fill": COLORES["preguntar"], "font": ("Consolas", 11, "italic")},
+            "titulo": {"fill": COLORES["titulo"], "font": ("Consolas", 12, "bold")},
+            "separador": {"fill": COLORES["separador"], "font": ("Consolas", 10)},
+            "titulo_centrado": {
+                "fill": COLORES["titulo"], "font": ("Consolas", 20, "bold"), "justify": "center"
+            },
+            "subtitulo_centrado": {
+                "fill": COLORES["sistema"], "font": ("Consolas", 11), "justify": "center"
+            },
+            "tagline_centrado": {
+                "fill": COLORES["narrar"], "font": ("Consolas", 10, "italic"), "justify": "center"
+            },
+        }
+        self._parser_estilos = {
+            "cmd": {"fill": COLORES["alerta"], "font": ("Consolas", 10, "bold")},
+            "resp": {"fill": COLORES["parser_fg"], "font": ("Consolas", 10)},
+        }
 
     # ------------------------------------------------------------------
     # ESCRITURA DE TEXTO
@@ -5310,22 +5731,28 @@ class Vista:
         velocidad = self.VELOCIDAD_TYPEWRITER.get(tag, 0) if typewriter else 0
         if velocidad > 0:
             self._ocupado = True
-            self._typewriter(texto + "\n", tag, 0, velocidad)
+            self._texto_parcial = {"text": "", "tag": tag}
+            self._typewriter(texto, tag, 0, velocidad)
         else:
-            self.texto.configure(state="normal")
-            self.texto.insert("end", texto + "\n", tag)
-            self.texto.see("end")
-            self.texto.configure(state="disabled")
+            self._texto_lineas.append({"text": texto, "tag": tag})
+            if len(self._texto_lineas) > 500:
+                self._texto_lineas = self._texto_lineas[-500:]
+            self._render_texto_canvas()
 
     def _typewriter(self, texto, tag, indice, velocidad):
         """Type one character per `velocidad` ms using .after(); release _ocupado when done."""
         if indice < len(texto):
-            self.texto.configure(state="normal")
-            self.texto.insert("end", texto[indice], tag)
-            self.texto.see("end")
-            self.texto.configure(state="disabled")
+            if self._texto_parcial is None:
+                self._texto_parcial = {"text": "", "tag": tag}
+            self._texto_parcial["text"] += texto[indice]
+            self._render_texto_canvas()
             self.root.after(velocidad, self._typewriter, texto, tag, indice + 1, velocidad)
         else:
+            self._texto_lineas.append({"text": texto, "tag": tag})
+            if len(self._texto_lineas) > 500:
+                self._texto_lineas = self._texto_lineas[-500:]
+            self._texto_parcial = None
+            self._render_texto_canvas()
             self._ocupado = False
 
     # ------------------------------------------------------------------
@@ -5411,21 +5838,6 @@ class Vista:
         self.set_imagen(_PORTADA)
 
         # --- Texto principal: titulo centrado ---
-        self.texto.tag_configure("titulo_centrado",
-            foreground=COLORES["titulo"],
-            font=("Consolas", 20, "bold"),
-            justify="center",
-        )
-        self.texto.tag_configure("subtitulo_centrado",
-            foreground=COLORES["sistema"],
-            font=("Consolas", 11),
-            justify="center",
-        )
-        self.texto.tag_configure("tagline_centrado",
-            foreground=COLORES["narrar"],
-            font=("Consolas", 10, "italic"),
-            justify="center",
-        )
         self.agregar_texto("", "separador", typewriter=False)
         self.agregar_texto(d["titulo"],    "titulo_centrado",    typewriter=False)
         self.agregar_texto(d["subtitulo"], "subtitulo_centrado", typewriter=False)

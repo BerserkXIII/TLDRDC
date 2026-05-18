@@ -2,12 +2,29 @@
 # UI CONFIGURATION
 # ════════════════════════════════════════════════════════════════════
 
-import os
 from pathlib import Path
 
 # Rutas base relativas a este archivo
 _BASE_DIR = Path(__file__).parent
 _IMAGEN_ASSETS = _BASE_DIR / "imagenes" / "pruebas"
+
+# Canvas-first is the renderer now.
+# CANVAS-FIRST TODO LEGACY: UI_RENDER_MODE is kept only for stale imports; remove
+# it once the old panel factories are deleted.
+UI_RENDER_MODE = "canvas_first"
+
+# Canonical canvas layer tags for the canvas-first migration. Existing tags are
+# kept in the factories so current code can coexist with the new contract.
+CANVAS_LAYER_TAGS = {
+    "background": "layer_bg",
+    "content": "layer_content",
+    "fx": "layer_fx",
+}
+CANVAS_LAYER_ORDER = (
+    CANVAS_LAYER_TAGS["background"],
+    CANVAS_LAYER_TAGS["content"],
+    CANVAS_LAYER_TAGS["fx"],
+)
 
 # ════════════════════════════════════════════════════════════════════
 # GOTHIC COLOR PALETTE
