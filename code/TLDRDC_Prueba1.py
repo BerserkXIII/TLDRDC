@@ -607,12 +607,12 @@ def crear_personaje():
     estado["pasos_nivel2"] = []
     estado["pasos_secretos"] = []
     
-    narrar("\nTe duele la cabeza, pero no es dolor, es una presión aguda en tu cabeza,"
+    narrar("\nTe duele la cabeza, pero no es dolor, es una presión aguda en las sienes,"
            "como si algo hubiese anidado entre tus pensamientos y reptara tras tus ojos."
            "Te despiertas entumecido, con el frío de la piedra en los huesos, y descubres con horror que no puedes moverte.")
-    narrar("Algo te sujeta, unas correas de cuero endurecido y grapas oxidadas que se hunden en tu carne. Bajo tu espalda sientes una losa húmeda; sobre ti, una bóveda que supura gotas oscuras que caen con una cadencia funeraria.")
+    narrar("Algo te sujeta, unas correas de cuero endurecido y grapas oxidadas que se hunden en tu carne. \nBajo tu espalda sientes una losa húmeda; sobre ti, una bóveda que supura gotas oscuras que caen con una cadencia funeraria.")
     narrar("No recuerdas cómo llegaste aquí. No recuerdas dónde estabas. La memoria es una herida cauterizada a la fuerza, una cicatriz sin historia.")
-    preguntar("Recuerdas cual era tu nombre?")
+    preguntar("¿Recuerdas al menos cuál era tu nombre?")
     while True:
         nombre_jugador = pedir_input().strip()
         if nombre_jugador:
@@ -638,7 +638,8 @@ def crear_personaje():
         "_x9f": False,
         "armas": {},  # NUEVA PARTIDA: inventario de armas vacío al inicio
     }
-    preguntar("\nLa carne solo tolera una bendición antes de desgarrarse bajo el peso de otra. ¿Qué parte de ti ha sobrevivido? (1 = muy ágil, 9 = muy fuerte)")
+    preguntar("\nLa carne solo tolera una bendición antes de desgarrarse bajo el peso de otra. \n¿Qué parte de ti ha sobrevivido?")
+    sistema("Elige entre 1 y 9: 1 = muy ágil, 9 = muy fuerte.")
     while True:
         entrada = pedir_input().strip()
         if not entrada.isdigit():
@@ -663,7 +664,7 @@ def crear_personaje():
     personaje["armadura_max"] = MAX_ARMADURA
     # Cálculo de armadura basado en destreza
     if destreza >= 9:
-        personaje["armadura"] = 4
+        personaje["armadura"] = 3
     elif destreza >= 6:
         personaje["armadura"] = 2
     elif destreza >= 3:
@@ -755,10 +756,10 @@ def añadir_arma(personaje, nueva_arma):
     if len(estado["armas_jugador"]) >= 3:
         preguntar(f'Tienes 3 armas, debes descartar una para recoger {nueva_arma}.\nArmas actuales: {list(estado["armas_jugador"].keys())}')
         while True:
-            preguntar("Cual quieres descartar? (cancelar: /no)")
+            preguntar("Cual quieres descartar? (cancelar: no)")
             descartar = pedir_input().lower()
-            if descartar in ["/no", "no", "n"]:
-                narrar("Cancelas la recogida del arma.")
+            if descartar in ["no", "n"]:
+                narrar("No recoges el arma.")
                 return
             descartar_real = abreviaturas.get(descartar, descartar)
             if descartar_real in estado["armas_jugador"]:
@@ -787,7 +788,7 @@ def celda_inicial(personaje):
     separador()
     panel(
         f"'Ásí que {personaje['nombre'].capitalize()}. No sé cómo llegaste aquí,"
-        " pero debes salir, ¡y rápido! Si no, acabarás como yo...'",
+        " pero debes salir cuanto antes. Si no, acabarás como yo... o mucho peor...'",
         titulo="",
         estilo="dim red"
     )
@@ -799,9 +800,9 @@ def celda_inicial(personaje):
     )
     panel(
         "'No dejes que te atrapen...'\n\n"
-        "Sus ojos amarillentos y el brillo de las cadenas donde debería estar su cuerpo\n"
-        "son lo único que ves. Sus ojos se le desorbitan, y se desvanece,\n"
-        "chocando su cabeza contra el suelo.",
+        "Sus ojos amarillentos y el brillo de las cadenas rodeando su cuerpo\n"
+        "son lo único que ves. Sus ojos se desorbitan en una mueca horrible,\n"
+        " y se desvanece, haciendo chocar su cabeza contra el suelo.",
         titulo="",
         estilo="dim red"
     )
@@ -821,10 +822,10 @@ def celda_inicial(personaje):
     personaje["armas"] = estado["armas_jugador"].copy()
     
     while True:
-        preguntar("¿Rebuscas en el cadáver? (s/n)")
+        preguntar("¿Rebuscas en su cadáver? (s/n)")
         resp = leer_input("> ", personaje)
         if resp in ["s", "si"]:
-            narrar("Encuentras una espada oxidada y una poción entre los harapos del prisionero.")
+            narrar("Encuentras una espada rota y oxidada y una poción entre los harapos del prisionero.")
             personaje["pociones"] += 1
             estado["armas_jugador"]["espada"] = armas_global["espada"].copy()
             # CRÍTICO: Sincronizar nueva arma con UI para que se muestre el sprite
@@ -836,10 +837,12 @@ def celda_inicial(personaje):
         else:
             alerta("Respuesta no válida.")
     separador()
+    narrar("No sientes pena por el prisionero, pero su destino te ha enseñado lo que te espera si no escapas.")
     narrar("Aquí no hay nada más que hacer. Debes buscar la salida.")
     narrar("Sacas la cabeza de la celda y estás en un corredor lleno de celdas.")
     narrar("Oyes ruidos, gemidos, llantos y gritos, pero no ves a nadie.")
-    narrar("La oscuridad lo engulle todo. Apenas ves las paredes, pero debes avanzar.")
+    narrar("La escasa e irregular iluminación apenas te permite distinguir las formas entre las negras sombras.")
+    narrar("La oscuridad lo engulle todo. A dura penas ves las paredes, pero debes avanzar.")
     explorar(personaje)
 
 # ================== CURACIÓN ==================
@@ -890,7 +893,7 @@ def _explorar_paso(personaje):
         resultado_derrota = fin_derrota(personaje)
         if personaje.get("_flg1"):
             personaje.pop("_flg1", None)
-            narrar("Lentamente, vuelves en sí.")
+            narrar("Lentamente, vuelves en tí mismo.")
             return True
         return
     if personaje["vida"] <= 6 and personaje["pociones"] > 0:
@@ -924,40 +927,46 @@ def _explorar_paso(personaje):
         narrar("Esperas. Nada se mueve. Eso no te tranquiliza en absoluto.")
     elif textos_exploracion == 5:
         narrar("Todos los pasillos parecen iguales, y te sientes perdido. No sabes si estás dando vueltas o avanzas hacia algún lado.")
-        narrar("Las marcas en las paredes podrían ser antiguas... o nuevas. No estás seguro con toda la sangre y humedad que hay.")
-        narrar("Empiezas a dudar si has pasado ya por aquí. No lo sabes. Eso es lo peor.")
+        narrar("Las marcas en las paredes podrían ser antiguas o nuevas. No estás seguro con toda la sangre y humedad que hay.")
+        narrar("Empiezas a dudar si has pasado ya por aquí. Todas las marcas parecen iguales o cambian su forma. Eso es lo peor.")
     elif textos_exploracion == 6:
-        narrar("A lo lejos, ves una figura encorvada arrastrándose por las paredes. Sus movimientos son torpes, pero al verte sale corriendo hacia la derecha.")
+        narrar("A lo lejos, ves una figura encorvada arrastrándose por las paredes.")
+        narrar("Sus movimientos son torpes y pesados, pero al verte sale corriendo hacia la derecha.")
         narrar("El sonido húmedo que deja tras de sí tarda demasiado en desaparecer.")
-        narrar("Lo que sea que era, ha ido hacia la derecha. Y lo ha hecho con prisa.")
+        narrar("Lo que sea que fuera, ha ido hacia la derecha. ¿Esperará a qué lo sigan?")
     elif textos_exploracion == 7:
         narrar("El suelo cruje bajo tus pies, y de pronto te hundes un poco. No puedes ver nada, pero sientes que se te mojan los pies...")
-        narrar("Algo se mueve bajo la superficie, rozándote los tobillos antes de desaparecer.")
-        narrar("No hay agua visible. El suelo está seco. Lo que sea que te rozó no venía de un charco.")
+        narrar("El pasillo se inunda y algo se mueve bajo la superficie, rozándote los tobillos antes de desaparecer.")
+        narrar("No puedes verlo. Te mueves por instinto y te pones a salvo. Cuando miras atras, el suelo está seco.")
     elif textos_exploracion == 8:
-        narrar("Este pasillo está cubierto de insectos. Se alimentan de los desperdicios y la sangre, y su zumbido es insoportable...")
+        narrar("Los pasillos está cubiertos de insectos. Se acumulan en las esquinas y rincones de la piedra")
+        narrar("Ves como se alimentan de los desperdicios, los cadáveres y la sangre, y su zumbido es insoportable...")
         narrar("Algunos se apartan de tu camino, otros parecen acercarse con curiosidad.")
-        narrar("El zumbido no baja aunque los dejas atrás. Como si el pasillo entero vibrara a la misma frecuencia.")
+        narrar("Te repugnan, y apartas la mirada de ellos. Pero jurarias que tienen rostros humanos grabados en sus caparazones...")
     elif textos_exploracion == 9:
         narrar("A la derecha, a lo lejos en el pasillo, ves una luz tenue que parpadea. No sabes si es una señal de esperanza o una trampa...")
         narrar("Cada vez que parpadea, proyecta sombras que no siempre coinciden con las paredes.")
-        narrar("No sabes si acercarte al fuego es más peligroso que ignorarlo. Aquí abajo, la luz tiene un precio.")
+        narrar("No sabes si acercarte es más peligroso que ignorarlo. Aquí abajo, la luz tiene un precio.")
     elif textos_exploracion == 10:
         narrar("Oyes unos aullidos inhumanos. El eco inunda el pasillo, y no sabes de dónde vienen, pero parecen estar cerca...")
         narrar("Los aullidos se solapan entre sí, como si varias gargantas compartieran el mismo aliento.")
-        narrar("No se acercan. Tampoco se alejan. Solo llenan el espacio como si fueran parte de la arquitectura.")
+        narrar("No se acercan. Tampoco se alejan. Solo llenan el espacio como si fueran parte del propio pasillo.")
     elif textos_exploracion == 11:
         narrar("Al llegar al cruce, sientes una oleada de tristeza... '¡Qué hago aquí? ¿Cómo he llegado a este sitio?'")
         narrar("Durante un instante, te cuesta recordar qué te empujó a seguir adelante.")
-        narrar("La tristeza pasa pronto. Demasiado pronto. Como si algo la hubiera retirado en lugar de disolverse sola.")
+        narrar("No recuerdas nada. Conoces tu nombre, alguien te lo puso. ¿Quién? ¿Donde?")
+        narrar("Alguien usaria tu nombre con afecto. No lo recuerdas, pero lo sabes. Y esa sensación de pérdida te golpea con fuerza.")
+        narrar("La tristeza pasa de golpe. Demasiado rapido para su intensidad. Como si algo la hubiera devorado en lugar de disolverse sola.")
     elif textos_exploracion == 12:
-        narrar("Cuando el camino se bifurca, notas un olor dulzón en el aire, más agradable que el hedor constante a humedad y sangre. Viene por la izquierda...")
+        narrar("Cuando el camino se bifurca, notas un olor dulzón en el aire, más agradable que el hedor constante a humedad y sangre.")
+        narrar("Dirias que viene por la izquierda...")
         narrar("Ese aroma te resulta inquietantemente familiar, aunque no recuerdas por qué.")
-        narrar("Lo que huele bien aquí abajo no lo hace por accidente.")
+        narrar("Por lo que has visto, nada deberia oler así de bien aquí abajo.")
     elif textos_exploracion == 13:
         narrar("Oyes un tumulto a tu derecha. El pasillo está tenuemente iluminado, y ves un bulto en medio...")
-        narrar("El bulto parece moverse de forma irregular, como si creciera por momentos.")
-        narrar("El sonido que emite no es un quejido ni un gruñido. Es algo entre las dos cosas que no tiene nombre.")
+        narrar("El bulto parece moverse de forma irregular, como si creciera por momentos, pero no distingues qué es.")
+        narrar("El sonido lejano que emite no es un grito ni un gruñido. Es una especie de gemido o aullido bajo y repetitivo...")
+        narrar("No sabes si se trata de una o de varias criaturas, pero el ruido se propaga y lo sientes embriagador.")
     elif textos_exploracion == 14:
         narrar("No has comido ni bebido nada, pero no sientes cansancio. Sabes que es raro, pero no te preocupa.")
         narrar("De hecho, cuanto más avanzas, más ligera sientes la mente.")
@@ -1351,11 +1360,11 @@ def _explorar_paso(personaje):
             # 30% — chequeo destreza
             narrar("Llevas tres pasos cuando el suelo se mueve. La piedra bajo el liquido se resquebraja.")
             narrar("El suelo se desplaza, como si algo enorme respirara justo debajo, palpitando.")
-            narrar("La superficie se vuelve resbaladiza en un instante. Agua, linfa, algo que no tiene nombre, todo a la vez.")
+            narrar("La superficie se vuelve resbaladiza en un instante. Agua, linfa, fluidos, todo a la vez.")
             chequeo_destreza = random.randint(1, 25)
             if chequeo_destreza <= personaje["destreza"]:
                 narrar("Tu cuerpo reacciona antes que tu cabeza. Cambias el peso, ajustas los pasos y mantienes el equilibrio.")
-                narrar("Cruzas el tramo movedizo sin perder caer, pisando rápido y sin dudar.")
+                narrar("Cruzas el tramo movedizo sin perder pie, pisando rápido y sin dudar.")
                 narrar("Al otro lado, el suelo vuelve a ser piedra. Sólida. Fría. Miras atras y el pasillo es idéntico...")
             else:
                 narrar("El pie derecho se te resbala. Intentas corregir y mantener el equilibrio, pero no hay agarres.")
@@ -1374,7 +1383,7 @@ def _explorar_paso(personaje):
                     narrar("A pesar del dolor, tu voluntad te impulsa mas alla de tu fisico, y consigues despegar las manos del suelo.")
                     narrar("Sin saber como, y a pesar del dolor, tu cuerpo se mueve hacia adelante, hacia el otro lado del pasillo.")
                     narrar("Cuando por fin cruzas, tienes heridas por todo el cuerpo y los músculos agarrotados.")
-                    narrar("El daño es grave, pero notas todavía mas dolor en tu alma...")
+                    narrar("El daño es grave, pero notas todavía mas dolor en tu mente...")
                     aplicar_evento({"vida": -3}, personaje)
 
 
@@ -1530,7 +1539,7 @@ def _explorar_paso(personaje):
         narrar("Tomas la derecha y los aullidos no se quedan atrás.")
         narrar("Los sonidos se multiplican y rebotan por los pasillos.")
         narrar("No sabes cuántos son… ni desde dónde vienen.")
-        narrar("La piedra los duplica y los tuerce. Lo que suena como uno podría ser cinco. O al revés.")
+        narrar("La piedra los duplica y los tuerce. Lo que suena como una voz, podrían ser cinco. O al revés.")
         tirada = random.random()
         if tirada < 0.66:
             narrar("El pasillo se estrecha y eso ayuda. Menos superficie donde rebotar, menos confusión.")
@@ -1640,7 +1649,7 @@ def _explorar_paso(personaje):
     elif resp == "d" and textos_exploracion == 12:
         narrar("Tomas la derecha. El olor dulzón te envuelve por completo antes de dar diez pasos.")
         narrar("Es cálido, casi reconfortante. Te hace pensar en hogar… en seguridad.")
-        narrar("En alguien esperándote. En una puerta abierta. En luz natural.")
+        narrar("En alguien esperándote, en una cama, en luz natural.")
         narrar("Aquí abajo no hay nada de eso, pero el aroma convence al cuerpo antes que a la mente.")
         narrar("Te mueves casi automáticamente, siguiendo el dulce rastro sin decidirlo.")
         tirada = random.random()
@@ -1656,17 +1665,19 @@ def _explorar_paso(personaje):
             narrar("Ya no te parece tan reconfortante. Es el olor de algo que te usó.")
             narrar("Continúas tu marcha, asqueado, intentando no respirar por la nariz.")
         else:
-            narrar("El rastro se diluye antes de llegar a ningún sitio.")
+            narrar("Avanzas sin pensar, arrastrado por el aroma. Te resistes con toda tu voluntad, y comienzas a detenerte.")
+            narrar("Sientes ganchos en tu mente, pero te resistes y te paras en seco.")
+            narrar("El rastro se diluye antes de que te estalle el cerebro.")
             narrar("El pasillo queda vacío. El olor, apagado. La ilusión, rota.")
-            narrar("Te detienes un momento en medio de la nada, esperando algo que no llega.")
-            narrar("Solo hay silencio y la sensación de haber sido engañado por tu propio cerebro.")
-            narrar("Sacudes la cabeza. Sigues. No puede haber nada aquí que despierte lo que acababas de sentir.")
+            narrar("Te detienes un momento en medio de la nada, esperando un ataque que no llega.")
+            narrar("Solo hay silencio y la sensación de haber sido engañado, utilizado.")
+            narrar("Sacudes la cabeza. No... No puede haber nada aquí que despierte lo que acababas de sentir.")
 
     elif resp == "i" and textos_exploracion == 13:
         narrar("Le das la espalda al tumulto y tomas la izquierda.")
         narrar("El sonido queda atrás, pero no del todo. Sigue llegando en oleadas, amortiguado por la distancia y la piedra.")
         narrar("Ese ruido no es de combate. No hay gritos formados ni golpes secos de arma.")
-        narrar("Es algo que se mueve contra sí mismo. Que crece y se reordena.")
+        narrar("Es algo que se mueve contra sí mismo. Que crece y se reordena, pero con una cadencia siniestra.")
         narrar("Llevas unos veinte pasos cuando el eco desaparece. El silencio que lo sustituye es más pesado.")
         tirada_i = random.random()
         if tirada_i < 0.4:
@@ -1680,7 +1691,7 @@ def _explorar_paso(personaje):
             narrar("El pasillo no da señales de vida. Solo humedad, piedra y el olor denso de algo orgánico que se descompone en algún lugar cercano.")
             narrar("Llegas al otro lado sin encontrar nada ni nadie.")
             narrar("El tumulto que dejaste atrás sigue rumiando en algún punto del pasillo.")
-            narrar("Lo que sea que lo formaba, ya no te persigue. De momento.")
+            narrar("Lo que sea que lo formaba, no te ha perseguido. De momento.")
     elif resp == "d" and textos_exploracion == 13:
         narrar("Te acercas al tumulto y el ruido cambia de naturaleza.")
         narrar("Ya no es solo movimiento. Es algo húmedo, visceral, como carne que trabaja.")
@@ -2779,7 +2790,7 @@ def enemigo_aleatorio(nombre=None):
             narrar("El rabioso se golpea el pecho con fuerza hasta abrirse la carne a puñetazos.")
             narrar("Entre gárgaras de sangre, pronuncia una oración podrida y se lanza directo a tu cuello.")
         else:
-            narrar("El pasillo huele a sangre quemada antes de que lo veas. Tiene marcas a fuego por todo el cuerpo.")
+            narrar("Huele a sangre quemada de lejos. Tiene marcas a fuego por todo el cuerpo.")
             narrar("Abre los brazos hacia ti con las palmas arriba, rezando algo incoherente con una convicción absoluta.")
 
     elif enemigo["nombre"] == "Sombra tenebrosa":
@@ -2800,7 +2811,7 @@ def enemigo_aleatorio(nombre=None):
     elif enemigo["nombre"] == "Larvas de Sangre":
         v = sacar_presentacion("Larvas de Sangre", 4)
         if v == 0:
-            narrar("Una repugnante larva palpitante llena de sangre se arrastra hacia ti.")
+            narrar("La repugnante larva, palpitante, llena de sangre, se arrastra hacia ti.")
             narrar("Despliega su afilada probóscide y la sacude como un látigo viscoso.")
         elif v == 1:
             narrar("Del techo cae un gusano hinchado del tamaño de un brazo humano.")
@@ -2815,11 +2826,11 @@ def enemigo_aleatorio(nombre=None):
     elif enemigo["nombre"] == "Mosca de Sangre":
         v = sacar_presentacion("Mosca de Sangre", 4)
         if v == 0:
-            narrar("Un insecto hinchado y abotargado zumba sobre ti.")
+            narrar("Un insecto hinchado y abotargado zumba sobre ti. Ves unas pequeñas manos en ella.")
             narrar("Sus obscenas bocas chasquean al verte, salpicando asquerosos coagulos.")
         elif v == 1:
             narrar("Una mosca del tamaño de un perro emerge del humo, con el abdomen reventado en llagas.")
-            narrar("Cada obsceno aleteo desprende gotas calientes de sangre podrida.")
+            narrar("Se rasca las llagas, y cada obsceno aleteo desprende gotas calientes de sangre podrida.")
         elif v == 2:
             narrar("El asqueroso zumbido crece hasta dolerte en los dientes y una sombra te tapa la cara.")
             narrar("El insecto abre sus mandíbulas serradas y gotea un líquido negro sobre tus hombros.")
@@ -5143,7 +5154,7 @@ class Vista:
         # Huir
         cvs_huir = self._botones_acciones['huir']
         puede_huir = not huida_bloqueada
-        self._redibujar_boton(cvs_huir, "Huir", puede_huir)
+        self._redibujar_boton(cvs_huir, puede_huir)
         
         # Si acábamos de entrar en combate, forzar redraw para pasar de gris a activo
         if estaba_inactivo:
@@ -5646,4 +5657,3 @@ def _iniciar_juego():
 if __name__ == "__main__":
     _iniciar_juego()
     # Para jugar: cambia _demo_vista() por _iniciar_juego()
-
